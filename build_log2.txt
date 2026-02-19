@@ -1,0 +1,70 @@
+﻿Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 998.2ms
+  Running TypeScript ...
+node.exe : Failed to 
+compile.
+At line:1 char:1
++ & "C:\nvm4w\nodejs/n
+ode.exe" "C:\nvm4w\nod
+ejs/node_modules/npm/b
+in/np ...
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo    
+          : NotS    
+pecified: (Fail    ed 
+to compile.:    
+String) [], Rem    
+oteException
+    + FullyQualifie   
+ dErrorId : Nati    
+veCommandError
+ 
+
+./src/lib/db.ts:8:66
+Type error: Argument 
+of type '{}' is not 
+assignable to 
+parameter of type 'Sub
+set<PrismaClientOption
+s, 
+PrismaClientOptions>'.
+
+[0m [90m  6 |[39m 
+}[33m;[39m
+ [90m  7 |[39m
+[31m[1m>[22m[39m[
+90m  8 |[39m 
+[36mexport[39m 
+[36mconst[39m 
+prisma [33m=[39m glo
+balForPrisma[33m.[39
+mprisma [33m?[39m[3
+3m?[39m 
+[36mnew[39m [33mPri
+smaClient[39m({})[33
+m;[39m
+ [90m    |[39m      
+                      
+                      
+                
+[31m[1m^[22m[39m
+ [90m  9 |[39m
+ [90m 10 |[39m 
+[36mif[39m (process
+[33m.[39menv[33m.[3
+9m[33mNODE_ENV[39m 
+[33m!==[39m [32m'pr
+oduction'[39m) global
+ForPrisma[33m.[39mpr
+isma [33m=[39m 
+prisma[33m;[39m
+ [90m 11 |[39m[0m
+Next.js build worker 
+exited with code: 1 
+and signal: null

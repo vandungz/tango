@@ -1,0 +1,77 @@
+.header {
+    text-align: center;
+    padding: 20px 0 8px;
+}
+
+.levelRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 12px;
+}
+
+.levelLabel {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    color: var(--accent-color);
+    text-transform: uppercase;
+}
+
+.levelNumber {
+    font-size: 36px;
+    font-weight: 300;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.divider {
+    height: 1px;
+    background: var(--divider-color);
+    margin: 12px auto;
+    width: 80%;
+    max-width: 300px;
+}
+
+.infoRow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.badge.easy {
+    background: rgba(76, 175, 80, 0.12);
+    color: #4CAF50;
+}
+
+.badge.medium {
+    background: rgba(255, 152, 0, 0.12);
+    color: #FF9800;
+}
+
+.badge.hard {
+    background: rgba(244, 67, 54, 0.12);
+    color: #F44336;
+}
+
+.badge.veryhard {
+    background: rgba(156, 39, 176, 0.12);
+    color: #9C27B0;
+}
+
+.timer {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}

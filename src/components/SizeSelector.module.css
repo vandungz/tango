@@ -1,0 +1,35 @@
+.selector {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px;
+    background: var(--cell-bg);
+    border-radius: 12px;
+    width: fit-content;
+    margin: 0 auto;
+}
+
+.pill {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.pill:hover {
+    color: var(--text-primary);
+    background: var(--card-bg);
+}
+
+.pill.active {
+    background: var(--card-bg);
+    color: var(--accent-color);
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
