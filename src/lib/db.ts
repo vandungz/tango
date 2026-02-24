@@ -1,19 +1,25 @@
 // Prisma client singleton for Next.js
 import { PrismaClient } from '@/generated/prisma/client';
+import { PrismaNeon } from '@prisma/adapter-neon';
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
 };
 
-if (!process.env.DATABASE_URL) {
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
     throw new Error('DATABASE_URL is not set');
 }
 
-// Neon/Postgres uses the default Prisma driver (no adapter needed)
+// Neon requires the fetch-based driver adapter in Prisma 7+
+const adapter = new PrismaNeon({ connectionString: databaseUrl });
+
 export const prisma =
     globalForPrisma.prisma ??
     new PrismaClient({
-        log: ['error'], // satisfy required options param and keep noise low
+        adapter,
+        log: ['error'], // keep client logs quiet in production
     });
 
 if (process.env.NODE_ENV !== 'production') {
