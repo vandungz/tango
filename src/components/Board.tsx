@@ -41,7 +41,7 @@ export default function Board() {
 
     const totalSize = state.size * cellSize + (state.size - 1) * gap + boardPadding * 2;
 
-    const boardStyle: React.CSSProperties = {
+    const boardStyle: React.CSSProperties & { '--board-padding'?: string } = {
         display: 'grid',
         gridTemplateColumns: `repeat(${state.size}, ${cellSize}px)`,
         gridTemplateRows: `repeat(${state.size}, ${cellSize}px)`,
