@@ -41,22 +41,21 @@ export default function Board() {
 
     const totalSize = state.size * cellSize + (state.size - 1) * gap + boardPadding * 2;
 
+    const boardStyle: React.CSSProperties = {
+        display: 'grid',
+        gridTemplateColumns: `repeat(${state.size}, ${cellSize}px)`,
+        gridTemplateRows: `repeat(${state.size}, ${cellSize}px)`,
+        gap: `${gap}px`,
+        position: 'relative',
+        width: `${totalSize}px`,
+        height: `${totalSize}px`,
+        padding: `${boardPadding}px`,
+        '--board-padding': `${boardPadding}px`,
+    };
+
     return (
         <div className={styles.boardContainer} ref={boardRef}>
-            <div
-                className={styles.board}
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${state.size}, ${cellSize}px)`,
-                    gridTemplateRows: `repeat(${state.size}, ${cellSize}px)`,
-                    gap: `${gap}px`,
-                    position: 'relative',
-                    width: `${totalSize}px`,
-                    height: `${totalSize}px`,
-                    padding: `${boardPadding}px`,
-                    ['--board-padding' as const]: `${boardPadding}px`,
-                }}
-            >
+            <div className={styles.board} style={boardStyle}>
                 {state.board.map((row, r) =>
                     row.map((_, c) => (
                         <Cell key={`${r}-${c}`} row={r} col={c} />
