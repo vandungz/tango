@@ -1,17 +1,20 @@
 // Prisma client singleton for Next.js
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { PrismaClient } from '@/generated/prisma/client';
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
 };
 
-const defaultUrl = process.env.VERCEL ? 'file:/tmp/tango.db' : 'file:./prisma/dev.db';
-const datasourceUrl = process.env.DATABASE_URL || defaultUrl;
+if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not set');
+}
 
-const adapter = new PrismaBetterSqlite3({ url: datasourceUrl });
-
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
+// Neon/Postgres uses the default Prisma driver (no adapter needed)
+export const prisma =
+    globalForPrisma.prisma ??
+    new PrismaClient({
+        log: ['error'], // satisfy required options param and keep noise low
+    });
 
 if (process.env.NODE_ENV !== 'production') {
     globalForPrisma.prisma = prisma;
