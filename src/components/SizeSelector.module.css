@@ -33,3 +33,18 @@
     font-weight: 600;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
+
+@media (max-width: 640px) {
+    .selector {
+        flex-wrap: wrap;
+        width: 100%;
+        max-width: 360px;
+        padding: 6px 8px;
+        gap: 8px;
+    }
+
+    .pill {
+        flex: 1 1 45%;
+        text-align: center;
+    }
+}

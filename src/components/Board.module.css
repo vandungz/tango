@@ -37,3 +37,13 @@
         transform: rotate(360deg);
     }
 }
+
+@media (max-width: 640px) {
+    .boardContainer {
+        padding: 10px 0 14px;
+    }
+
+    .board {
+        border-radius: 12px;
+    }
+}

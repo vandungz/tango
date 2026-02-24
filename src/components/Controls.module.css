@@ -77,3 +77,25 @@
 .newGame:hover {
     opacity: 0.92;
 }
+
+@media (max-width: 640px) {
+    .controls {
+        width: 100%;
+    }
+
+    .row {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .btn {
+        flex: 1 1 42%;
+        min-width: 140px;
+        justify-content: center;
+    }
+
+    .newGame {
+        max-width: none;
+    }
+}

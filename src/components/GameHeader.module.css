@@ -75,3 +75,38 @@
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
 }
+
+@media (max-width: 640px) {
+    .header {
+        padding: 14px 0 4px;
+    }
+
+    .levelRow {
+        gap: 8px;
+    }
+
+    .levelLabel {
+        letter-spacing: 2px;
+    }
+
+    .levelNumber {
+        font-size: 30px;
+    }
+
+    .divider {
+        margin: 10px auto;
+        width: 90%;
+    }
+
+    .infoRow {
+        gap: 12px;
+    }
+
+    .badge {
+        font-size: 10px;
+    }
+
+    .timer {
+        font-size: 13px;
+    }
+}

@@ -5,6 +5,8 @@
     padding: 12px 20px;
     max-width: 540px;
     margin: 0 auto;
+    width: 100%;
+    gap: 10px;
 }
 
 .logo {
@@ -132,4 +134,42 @@
     font-weight: 700;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+    .topbar {
+        padding: 10px 12px;
+        max-width: 100%;
+    }
+
+    .logoText {
+        font-size: 18px;
+    }
+
+    .volumeFloating {
+        right: 12px;
+        top: auto;
+        bottom: 16px;
+        transform: none;
+    }
+
+    .volumePanel {
+        right: 0;
+        top: auto;
+        bottom: 52px;
+        width: min(260px, calc(100vw - 40px));
+        transform: translate(0, 8px);
+    }
+
+    .volumePanel.open {
+        transform: translate(0, 0);
+    }
+
+    .volumeControls {
+        gap: 8px;
+    }
+
+    .volumeSlider {
+        width: 120px;
+    }
 }
