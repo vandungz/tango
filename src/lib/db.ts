@@ -6,10 +6,8 @@ const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
 };
 
-const datasourceUrl = process.env.DATABASE_URL;
-if (!datasourceUrl) {
-    throw new Error('DATABASE_URL is not set');
-}
+const defaultUrl = process.env.VERCEL ? 'file:/tmp/tango.db' : 'file:./prisma/dev.db';
+const datasourceUrl = process.env.DATABASE_URL || defaultUrl;
 
 const adapter = new PrismaBetterSqlite3({ url: datasourceUrl });
 
