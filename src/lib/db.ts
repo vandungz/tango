@@ -1,6 +1,6 @@
 // Prisma client singleton for Next.js
 import { PrismaClient } from '@/generated/prisma/client';
-import { PrismaNeon } from '@prisma/adapter-neon';
+import { PrismaNeonHttp } from '@prisma/adapter-neon';
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
@@ -12,8 +12,8 @@ if (!databaseUrl) {
     throw new Error('DATABASE_URL is not set');
 }
 
-// Neon requires the fetch-based driver adapter in Prisma 7+
-const adapter = new PrismaNeon({ connectionString: databaseUrl });
+// Neon over HTTPS (no WebSocket) for Vercel serverless/edge
+const adapter = new PrismaNeonHttp(databaseUrl, {});
 
 export const prisma =
     globalForPrisma.prisma ??
