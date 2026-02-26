@@ -7,6 +7,8 @@ import styles from './Controls.module.css';
 export default function Controls() {
     const { undo, reset, requestHint, newGame, state } = useGame();
 
+    const nextLabel = state.mode === 'journey' ? 'Next Level →' : 'Play Again →';
+
     return (
         <div className={styles.controls}>
             <div className={styles.row}>
@@ -54,7 +56,7 @@ export default function Controls() {
                     className={`${styles.btn} ${styles.newGame}`}
                     onClick={() => newGame()}
                 >
-                    Next Puzzle →
+                    {nextLabel}
                 </button>
             )}
         </div>

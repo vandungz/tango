@@ -19,6 +19,8 @@ model Puzzle {
   createdAt  DateTime @default(now())
 
   playedBy PlayedPuzzle[]
+  daily    DailyPuzzle?
+  journey  JourneyLevel?
 
   @@index([size, label])
 }
@@ -32,5 +34,53 @@ model PlayedPuzzle {
   puzzle Puzzle @relation(fields: [puzzleId], references: [id])
 
   @@unique([sessionId, puzzleId])
+  @@index([sessionId])
+}
+
+model DailyPuzzle {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  puzzleId  String   @unique
+  createdAt DateTime @default(now())
+
+  puzzle  Puzzle      @relation(fields: [puzzleId], references: [id])
+  results DailyResult[]
+}
+
+model DailyResult {
+  id              String   @id @default(cuid())
+  sessionId       String
+  dailyPuzzleId   String
+  durationSeconds Int
+  stars           Int
+  completedAt     DateTime @default(now())
+
+  daily DailyPuzzle @relation(fields: [dailyPuzzleId], references: [id])
+
+  @@unique([sessionId, dailyPuzzleId])
+  @@index([sessionId])
+}
+
+model JourneyLevel {
+  id        String   @id @default(cuid())
+  order     Int      @unique
+  puzzleId  String   @unique
+  createdAt DateTime @default(now())
+
+  puzzle  Puzzle         @relation(fields: [puzzleId], references: [id])
+  results JourneyResult[]
+}
+
+model JourneyResult {
+  id          String   @id @default(cuid())
+  sessionId   String
+  levelId     String
+  timeSeconds Int
+  stars       Int
+  completedAt DateTime @default(now())
+
+  level JourneyLevel @relation(fields: [levelId], references: [id])
+
+  @@unique([sessionId, levelId])
   @@index([sessionId])
 }

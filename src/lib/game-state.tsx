@@ -13,8 +13,13 @@ import { playClickSound, playClearSound, playHintSound, playVictorySound, setMas
 
 // — Types —
 
+type GameMode = 'daily' | 'journey';
+
 interface GameState {
     puzzleId: string | null;
+    dailyId: string | null;
+    dailyDate: string | null;
+    journeyLevelId: string | null;
     board: CellValue[][];
     initialBoard: CellValue[][]; // cells that are pre-filled (locked)
     clues: Clue[];
@@ -22,6 +27,12 @@ interface GameState {
     difficulty: number;
     label: string;
     level: number;
+    mode: GameMode;
+    journeyLevel: number | null;
+    journeyStars: number;
+    journeyBestTime: number | null;
+    currentStreak: number;
+    bestStreak: number;
     moveHistory: CellValue[][][];
     moveIndex: number;
     timer: number;
@@ -34,7 +45,7 @@ interface GameState {
 }
 
 type GameAction =
-    | { type: 'LOAD_PUZZLE'; payload: { puzzleId: string; board: CellValue[][]; clues: Clue[]; size: BoardSize; difficulty: number; label: string; level: number } }
+    | { type: 'LOAD_PUZZLE'; payload: { puzzleId: string; board: CellValue[][]; clues: Clue[]; size: BoardSize; difficulty: number; label: string; level: number; mode: GameMode; dailyId?: string | null; dailyDate?: string | null; journeyLevel?: number | null; journeyLevelId?: string | null; journeyStars?: number; journeyBestTime?: number | null; currentStreak?: number; bestStreak?: number } }
     | { type: 'PLACE_CELL'; row: number; col: number; value: CellValue }
     | { type: 'UNDO' }
     | { type: 'REDO' }
@@ -44,7 +55,8 @@ type GameAction =
     | { type: 'SET_WON' }
     | { type: 'SET_HINT'; row: number; col: number; value: CellValue }
     | { type: 'CLEAR_HINT' }
-    | { type: 'SET_LOADING'; loading: boolean };
+    | { type: 'SET_LOADING'; loading: boolean }
+    | { type: 'UPDATE_META'; payload: Partial<Pick<GameState, 'journeyStars' | 'journeyBestTime' | 'currentStreak' | 'bestStreak'>> };
 
 function cloneBoard(b: CellValue[][]): CellValue[][] {
     return b.map(r => [...r]);
@@ -52,6 +64,9 @@ function cloneBoard(b: CellValue[][]): CellValue[][] {
 
 const initialState: GameState = {
     puzzleId: null,
+    dailyId: null,
+    dailyDate: null,
+    journeyLevelId: null,
     board: [],
     initialBoard: [],
     clues: [],
@@ -59,6 +74,12 @@ const initialState: GameState = {
     difficulty: 0,
     label: '',
     level: 1,
+    mode: 'daily',
+    journeyLevel: null,
+    journeyStars: 0,
+    journeyBestTime: null,
+    currentStreak: 0,
+    bestStreak: 0,
     moveHistory: [],
     moveIndex: -1,
     timer: 0,
@@ -80,6 +101,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             return {
                 ...initialState,
                 puzzleId: action.payload.puzzleId,
+                dailyId: action.payload.dailyId ?? null,
+                dailyDate: action.payload.dailyDate ?? null,
+                journeyLevel: action.payload.journeyLevel ?? null,
+                journeyLevelId: action.payload.journeyLevelId ?? null,
                 board: cloneBoard(board),
                 initialBoard: cloneBoard(board),
                 clues: action.payload.clues,
@@ -87,6 +112,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 difficulty: action.payload.difficulty,
                 label: action.payload.label,
                 level: action.payload.level,
+                mode: action.payload.mode,
+                journeyStars: action.payload.journeyStars ?? 0,
+                journeyBestTime: action.payload.journeyBestTime ?? null,
+                currentStreak: action.payload.currentStreak ?? 0,
+                bestStreak: action.payload.bestStreak ?? 0,
                 moveHistory: [cloneBoard(board)],
                 moveIndex: 0,
                 timer: 0,
@@ -177,12 +207,27 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         case 'SET_LOADING':
             return { ...state, loading: action.loading };
 
+        case 'UPDATE_META':
+            return { ...state, ...action.payload };
+
         default:
             return state;
     }
 }
 
 // — Context —
+
+interface JourneyProgressItem {
+    level: number;
+    stars: number;
+    timeSeconds: number | null;
+}
+
+interface JourneySummary {
+    totalLevels: number;
+    nextLevel: number;
+    starsEarned: number;
+}
 
 interface GameContextType {
     state: GameState;
@@ -193,6 +238,10 @@ interface GameContextType {
     checkSolution: () => Promise<void>;
     requestHint: () => Promise<void>;
     newGame: (size?: BoardSize) => Promise<void>;
+    loadDaily: () => Promise<void>;
+    loadJourneyLevel: (level?: number) => Promise<void>;
+    journeyProgress: JourneyProgressItem[];
+    journeySummary: JourneySummary;
     boardSize: BoardSize;
     setBoardSize: (size: BoardSize) => void;
     soundVolume: number;
@@ -205,6 +254,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const [state, dispatch] = useReducer(gameReducer, initialState);
     const [boardSize, setBoardSizeState] = useState<BoardSize>(6);
     const [soundVolume, setSoundVolumeState] = useState<number>(DEFAULT_VOLUME);
+    const [journeyProgress, setJourneyProgress] = useState<JourneyProgressItem[]>([]);
+    const [journeySummary, setJourneySummary] = useState<JourneySummary>({ totalLevels: 200, nextLevel: 1, starsEarned: 0 });
     const soundOnRef = useRef(true);
     const soundVolumeRef = useRef<number>(DEFAULT_VOLUME);
     const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -247,18 +298,34 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         return () => clearInterval(interval);
     }, [state.isRunning, state.isWon]);
 
-    const fetchPuzzle = useCallback(async (size: BoardSize) => {
+    const refreshJourneyProgress = useCallback(async () => {
+        try {
+            const sessionId = getSessionId();
+            const res = await fetch(`/api/journey?sessionId=${sessionId}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            setJourneyProgress(data.progress || []);
+            setJourneySummary({
+                totalLevels: data.totalLevels || 200,
+                nextLevel: data.nextLevel || 1,
+                starsEarned: data.starsEarned || 0,
+            });
+        } catch (error) {
+            console.error('Failed to load journey progress:', error);
+        }
+    }, []);
+
+    const loadDaily = useCallback(async () => {
         dispatch({ type: 'SET_LOADING', loading: true });
         try {
             const sessionId = getSessionId();
-            const res = await fetch(`/api/puzzle?size=${size}&sessionId=${sessionId}`);
+            const res = await fetch(`/api/daily?sessionId=${sessionId}`);
             const data = await res.json();
-
             if (!res.ok) throw new Error(data.error);
 
-            const level = getLevel();
             restartValidationDelay();
             cancelPendingHint(true);
+            setBoardSizeState(data.size);
 
             dispatch({
                 type: 'LOAD_PUZZLE',
@@ -268,20 +335,66 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
                     clues: data.clues,
                     size: data.size,
                     difficulty: data.difficulty,
-                    label: data.label,
-                    level,
+                    label: data.label || 'Daily',
+                    level: 0,
+                    mode: 'daily',
+                    dailyId: data.dailyId,
+                    dailyDate: data.date,
+                    currentStreak: data.progress?.streak ?? 0,
+                    bestStreak: data.progress?.bestStreak ?? 0,
                 },
             });
         } catch (error) {
-            console.error('Failed to fetch puzzle:', error);
+            console.error('Failed to load daily puzzle:', error);
             dispatch({ type: 'SET_LOADING', loading: false });
         }
     }, [cancelPendingHint, restartValidationDelay]);
 
-    // Load initial puzzle
+    const loadJourneyLevel = useCallback(async (level?: number) => {
+        dispatch({ type: 'SET_LOADING', loading: true });
+        try {
+            const sessionId = getSessionId();
+            const rawTarget = level ?? journeySummary.nextLevel ?? 1;
+            const targetNumber = Number(rawTarget);
+            const safeTarget = Number.isFinite(targetNumber)
+                ? Math.min(Math.max(1, targetNumber), journeySummary.totalLevels || 200)
+                : 1; // clamp/guard invalid levels before calling API
+            const res = await fetch(`/api/journey/${safeTarget}?sessionId=${sessionId}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            restartValidationDelay();
+            cancelPendingHint(true);
+            setBoardSizeState(data.size);
+
+            dispatch({
+                type: 'LOAD_PUZZLE',
+                payload: {
+                    puzzleId: data.id,
+                    board: data.board,
+                    clues: data.clues,
+                    size: data.size,
+                    difficulty: data.difficulty,
+                    label: data.label || 'Very Hard',
+                    level: data.level,
+                    mode: 'journey',
+                    journeyLevel: data.level,
+                    journeyLevelId: data.levelId,
+                    journeyStars: data.progress?.stars ?? 0,
+                    journeyBestTime: data.progress?.timeSeconds ?? null,
+                },
+            });
+        } catch (error) {
+            console.error('Failed to load journey level:', error);
+            dispatch({ type: 'SET_LOADING', loading: false });
+        }
+    }, [cancelPendingHint, journeySummary.nextLevel, restartValidationDelay]);
+
+    // Load initial data
     useEffect(() => {
-        fetchPuzzle(boardSize);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+        loadDaily();
+        refreshJourneyProgress();
+    }, [loadDaily, refreshJourneyProgress]);
 
     const placeCell = useCallback((row: number, col: number) => {
         if (state.initialBoard[row]?.[col]) return;
@@ -329,11 +442,23 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
         const boardToCheck = boardOverride ? cloneBoard(boardOverride) : state.board;
 
+        const meta = state.mode === 'daily'
+            ? { dailyId: state.dailyId, dailyDate: state.dailyDate, durationSeconds: state.timer }
+            : state.mode === 'journey'
+                ? { levelId: state.journeyLevelId, level: state.journeyLevel, durationSeconds: state.timer }
+                : {};
+
         try {
             const res = await fetch('/api/puzzle/check', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ puzzleId: state.puzzleId, board: boardToCheck }),
+                body: JSON.stringify({
+                    puzzleId: state.puzzleId,
+                    board: boardToCheck,
+                    sessionId: getSessionId(),
+                    mode: state.mode,
+                    meta,
+                }),
             });
             const data = await res.json();
 
@@ -350,13 +475,34 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
                 const newStreak = getStreak() + 1;
                 setStreak(newStreak);
                 setLevel(state.level + 1);
+
+                if (data.daily) {
+                    dispatch({
+                        type: 'UPDATE_META',
+                        payload: {
+                            currentStreak: data.daily.streak ?? state.currentStreak,
+                            bestStreak: data.daily.bestStreak ?? state.bestStreak,
+                        },
+                    });
+                }
+
+                if (data.journey) {
+                    dispatch({
+                        type: 'UPDATE_META',
+                        payload: {
+                            journeyStars: data.journey.stars ?? state.journeyStars,
+                            journeyBestTime: data.journey.timeSeconds ?? state.journeyBestTime,
+                        },
+                    });
+                    refreshJourneyProgress();
+                }
             } else if (data.errors?.length > 0) {
                 dispatch({ type: 'SET_ERRORS', errors: data.errors });
             }
         } catch (error) {
             console.error('Check failed:', error);
         }
-    }, [state.puzzleId, state.board, state.level]);
+    }, [refreshJourneyProgress, state.board, state.bestStreak, state.currentStreak, state.dailyDate, state.dailyId, state.journeyBestTime, state.journeyLevel, state.journeyLevelId, state.journeyStars, state.mode, state.puzzleId, state.timer, state.level]);
 
     const requestHint = useCallback(async () => {
         if (!state.puzzleId) return;
@@ -434,18 +580,25 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }, [state.board, state.clues, state.size, state.isWon, state.loading, state.errors.length, checkSolution]);
 
     const newGame = useCallback(async (size?: BoardSize) => {
-        const s = size || boardSize;
         incrementGamesPlayed();
         cancelPendingHint(true);
-        await fetchPuzzle(s);
-    }, [boardSize, cancelPendingHint, fetchPuzzle]);
+
+        if (state.mode === 'journey') {
+            const target = size || (state.journeyLevel ? state.journeyLevel + 1 : journeySummary.nextLevel);
+            await loadJourneyLevel(Math.min(target, journeySummary.totalLevels));
+            await refreshJourneyProgress();
+            return;
+        }
+
+        await loadDaily();
+    }, [cancelPendingHint, journeySummary.nextLevel, journeySummary.totalLevels, loadDaily, loadJourneyLevel, refreshJourneyProgress, state.journeyLevel, state.mode]);
 
     const setBoardSize = useCallback((size: BoardSize) => {
         setBoardSizeState(size);
         saveBoardSize(size);
         cancelPendingHint(true);
-        fetchPuzzle(size);
-    }, [cancelPendingHint, fetchPuzzle]);
+        loadDaily();
+    }, [cancelPendingHint, loadDaily]);
 
     const setSoundVolume = useCallback((volume: number) => {
         const clamped = Math.min(1, Math.max(0, volume));
@@ -458,6 +611,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return (
         <GameContext.Provider value={{
             state, placeCell, undo, redo, reset, checkSolution, requestHint, newGame,
+            loadDaily, loadJourneyLevel, journeyProgress, journeySummary,
             boardSize, setBoardSize, soundVolume, setSoundVolume,
         }}>
             {children}
