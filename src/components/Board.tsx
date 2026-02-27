@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useLayoutEffect, useState } from 'react';
 import { useGame } from '@/lib/game-state';
 import Cell from './Cell';
 import ClueIndicator from './ClueIndicator';
@@ -13,19 +13,32 @@ export default function Board() {
     const gap = 6;
     const boardPadding = 12;
 
-    useEffect(() => {
+    useLayoutEffect(() => {
+        if (!boardRef.current) return;
+
         const updateSize = () => {
-            if (!boardRef.current) return;
             const container = boardRef.current;
-            const maxWidth = Math.min(container.parentElement?.clientWidth || 500, 500);
+            if (!container) return;
+
+            const containerWidth = container.getBoundingClientRect().width || container.clientWidth || 500;
+            const viewportSafeWidth = typeof window !== 'undefined' ? window.innerWidth - 24 : containerWidth;
+            const maxWidth = Math.min(containerWidth, viewportSafeWidth, 520);
             const totalGap = (state.size - 1) * gap;
-            const available = maxWidth - boardPadding * 2 - totalGap;
+            const available = Math.max(maxWidth - boardPadding * 2 - totalGap, 120);
+
             setCellSize(Math.floor(available / state.size));
         };
 
+        const resizeObserver = new ResizeObserver(() => updateSize());
+
         updateSize();
+        resizeObserver.observe(boardRef.current);
         window.addEventListener('resize', updateSize);
-        return () => window.removeEventListener('resize', updateSize);
+
+        return () => {
+            resizeObserver.disconnect();
+            window.removeEventListener('resize', updateSize);
+        };
     }, [state.size]);
 
     if (state.loading || !state.board.length) {

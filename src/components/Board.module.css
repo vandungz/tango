@@ -3,6 +3,10 @@
     justify-content: center;
     align-items: center;
     padding: 16px;
+    width: 100%;
+    max-width: min(520px, 96vw);
+    margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .board {
@@ -40,7 +44,8 @@
 
 @media (max-width: 640px) {
     .boardContainer {
-        padding: 10px 0 14px;
+        padding: 12px 10px 16px;
+        max-width: min(500px, 94vw);
     }
 
     .board {
