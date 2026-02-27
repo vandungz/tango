@@ -27,6 +27,13 @@
   letter-spacing: -0.6px;
 }
 
+.logoIcon {
+  font-size: 34px;
+  font-weight: 800;
+  color: #0a1f3f;
+  letter-spacing: -0.6px;
+}
+
 .heading {
   display: flex;
   flex-direction: column;
@@ -34,8 +41,8 @@
 }
 
 .titleLine {
-  display: inline-flex;
-  align-items: baseline;
+  display: flex;
+  justify-content: center;
   gap: 10px;
   font-size: 30px;
   font-weight: 800;

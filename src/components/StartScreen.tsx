@@ -15,12 +15,11 @@ export default function StartScreen({ onDaily, onJourney, journeyNextLevel, jour
     return (
         <div className={styles.shell}>
             <div className={styles.logoBadge}>
-                <span className={styles.logoGlyph}>TU</span>
+                <span className={styles.logoIcon}>◐</span>
             </div>
             <div className={styles.heading}>
                 <div className={styles.titleLine}>
                     <h1 className={styles.brand}>Tango</h1>
-                    <span className={styles.muted}>Unlimited</span>
                 </div>
                 <p className={styles.subtitle}>
                     Fill the grid with <span className={styles.dotSun} aria-label="sun token" /> and <span className={styles.dotMoon} aria-label="moon token" /> using only logic!

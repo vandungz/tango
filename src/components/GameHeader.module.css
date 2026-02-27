@@ -1,9 +1,12 @@
 .header {
-    padding: 6px 0 2px;
+    padding: 6px 16px 2px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
 }
 
 .titleBlock {
@@ -56,11 +59,11 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    margin-top: 26px;
+    margin-top: 46px;
     align-items: center;
     width: 80%;
-    max-width: 680px;
-    padding: 10px 14px 14px;
+    max-width: 400px;
+    padding: 10px 16px 14px;
 }
 
 .starsRow {
@@ -98,7 +101,7 @@
 }
 
 .trackWrapper {
-    width: 30%;
+    width: 100%;
     display: flex;
     justify-content: center;
 }
@@ -106,7 +109,6 @@
 .track {
     position: relative;
     width: 100%;
-    max-width: 560px;
     height: 14px;
     background: linear-gradient(180deg, #e5e9f0 0%, #dfe4ec 100%);
     border-radius: 999px;
@@ -160,7 +162,12 @@
 
 @media (max-width: 640px) {
     .header {
-        align-items: center;
-        text-align: center;
+        max-width: min(400px, 92vw);
+        padding: 6px 10px 2px;
+    }
+
+    .timeline {
+        max-width: min(400px, 92vw);
+        padding: 10px 12px 14px;
     }
 }

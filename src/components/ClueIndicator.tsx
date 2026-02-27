@@ -6,35 +6,34 @@ import styles from './ClueIndicator.module.css';
 
 interface ClueIndicatorProps {
     clue: Clue;
-    cellSize: number;
-    gap: number;
-    padding: number;
+    size: number;
 }
 
-export default function ClueIndicator({ clue, cellSize, gap, padding }: ClueIndicatorProps) {
+export default function ClueIndicator({ clue, size }: ClueIndicatorProps) {
     const { row, col, direction, type } = clue;
 
-    // Position the indicator between the two cells
-    let top: number;
-    let left: number;
+    // Now 100% = grid area (no padding involved)
+    // Cell size = (100% - (size-1)*gap) / size
+    const cellSize = `(100% - ${size - 1} * var(--board-gap)) / ${size}`;
+    const cellWithGap = `(${cellSize} + var(--board-gap))`;
+
+    let top: string;
+    let left: string;
 
     if (direction === 'h') {
-        // Between (row, col) and (row, col+1)
-        top = padding + row * (cellSize + gap) + cellSize / 2;
-        left = padding + (col + 1) * (cellSize + gap) - gap / 2;
+        // Between (row, col) and (row, col+1) - horizontal clue
+        top = `calc(${row} * ${cellWithGap} + ${cellSize} / 2)`;
+        left = `calc(${col + 1} * ${cellWithGap} - var(--board-gap) / 2)`;
     } else {
-        // Between (row, col) and (row+1, col)
-        top = padding + (row + 1) * (cellSize + gap) - gap / 2;
-        left = padding + col * (cellSize + gap) + cellSize / 2;
+        // Between (row, col) and (row+1, col) - vertical clue
+        top = `calc(${row + 1} * ${cellWithGap} - var(--board-gap) / 2)`;
+        left = `calc(${col} * ${cellWithGap} + ${cellSize} / 2)`;
     }
 
     return (
         <div
             className={`${styles.indicator} ${styles[type === '=' ? 'equal' : 'cross']}`}
-            style={{
-                top: `${top}px`,
-                left: `${left}px`,
-            }}
+            style={{ top, left }}
         >
             {type === '=' ? '=' : '×'}
         </div>
