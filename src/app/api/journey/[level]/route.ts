@@ -54,10 +54,12 @@ async function ensureJourneyLevel(order: number) {
     return level;
 }
 
-export async function GET(request: NextRequest, { params }: { params: { level: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ level: string }> }) {
     const url = new URL(request.url);
     const { searchParams } = url;
     const sessionId = searchParams.get('sessionId');
+
+    const params = await context.params;
 
     // Turbopack sometimes drops params in dev; fall back to parsing from the path to avoid NaN.
     const levelSegment = params?.level ?? url.pathname.split('/').filter(Boolean).pop();
