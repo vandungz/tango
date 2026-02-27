@@ -1,25 +1,23 @@
 .header {
-    padding: 12px 0;
+    padding: 6px 0 2px;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 8px;
 }
 
-.topRow {
+.titleBlock {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.titles {
-    flex: 1;
+    flex-direction: column;
+    gap: 6px;
     min-width: 0;
+    align-items: center;
+    text-align: center;
 }
 
 .kicker {
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 1.3px;
     font-size: 11px;
     font-weight: 700;
     color: var(--accent-color);
@@ -28,102 +26,141 @@
 .titleRow {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .title {
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 800;
-    letter-spacing: -0.4px;
+    letter-spacing: -0.35px;
 }
 
-.subtitle {
-    color: var(--text-secondary);
-    font-size: 14px;
-}
-
-.timerCard {
-    min-width: 120px;
+.pill {
+    background: var(--cell-bg);
     border: 1px solid var(--border-color);
-    background: var(--card-bg);
-    border-radius: 14px;
-    padding: 10px 12px;
-    text-align: right;
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
 }
 
-.timerLabel {
-    font-size: 11px;
+.meta {
     color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-size: 13px;
 }
 
-.timerValue {
-    display: block;
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.2px;
+.timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 26px;
+    align-items: center;
+    width: 80%;
+    max-width: 680px;
+    padding: 10px 14px 14px;
 }
 
-.metaRow {
+.starsRow {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
-    flex-wrap: wrap;
-}
-
-.badgePrimary {
-    background: rgba(91, 109, 205, 0.12);
-    color: var(--accent-color);
-    border-radius: 999px;
-    padding: 6px 12px;
-    font-weight: 700;
-    font-size: 12px;
-    border: 1px solid rgba(91, 109, 205, 0.3);
-}
-
-.badgeMuted {
-    background: var(--cell-bg);
-    color: var(--text-secondary);
-    border-radius: 999px;
-    padding: 6px 12px;
-    font-weight: 700;
-    font-size: 12px;
-    border: 1px solid var(--border-color);
-}
-
-.stars {
-    display: flex;
-    gap: 4px;
 }
 
 .star {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: var(--border-color);
-    stroke-width: 1.6;
-    opacity: 0.5;
+    width: 20px;
+    height: 20px;
+    fill: #c3c8d2;
+    stroke: #b6bcc9;
+    stroke-width: 1.4;
+    opacity: 0.8;
+    transition: fill 0.25s ease, stroke 0.25s ease, opacity 0.25s ease;
 }
 
 .star.filled {
-    fill: #f6c45d;
+    fill: #f5c54b;
     stroke: #f0a600;
     opacity: 1;
 }
 
+.star.lost {
+    fill: #c9ced6;
+    stroke: #b4bac6;
+    opacity: 0.7;
+}
+
+.starsHint {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.trackWrapper {
+    width: 30%;
+    display: flex;
+    justify-content: center;
+}
+
+.track {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    height: 14px;
+    background: linear-gradient(180deg, #e5e9f0 0%, #dfe4ec 100%);
+    border-radius: 999px;
+    overflow: visible;
+}
+
+.fill {
+    height: 100%;
+    border-radius: inherit;
+    transition: width 0.6s ease, background-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.markers {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.marker {
+    position: absolute;
+    top: -26px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.markerIcon {
+    width: 18px;
+    height: 18px;
+    fill: #c3c8d2;
+    stroke: #b6bcc9;
+    stroke-width: 1.4;
+    opacity: 0.85;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.07));
+    transition: fill 0.25s ease, stroke 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
+}
+
+.markerActive .markerIcon {
+    fill: #f6c95a;
+    stroke: #efaf22;
+    opacity: 1;
+    transform: translateY(-2px);
+}
+
+.markerInactive .markerIcon {
+    fill: #cbd0d9;
+    stroke: #b4bac6;
+    opacity: 0.78;
+}
+
 @media (max-width: 640px) {
-    .topRow {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .timerCard {
-        width: 100%;
-    }
-
-    .title {
-        font-size: 22px;
+    .header {
+        align-items: center;
+        text-align: center;
     }
 }

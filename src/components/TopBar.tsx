@@ -5,7 +5,11 @@ import { useTheme } from '@/lib/theme';
 import { useGame } from '@/lib/game-state';
 import styles from './TopBar.module.css';
 
-export default function TopBar() {
+interface TopBarProps {
+    onMenuClick?: () => void;
+}
+
+export default function TopBar({ onMenuClick }: TopBarProps) {
     const { theme, toggleTheme } = useTheme();
     const { soundVolume, setSoundVolume } = useGame();
     const [volumeOpen, setVolumeOpen] = useState(false);
@@ -20,9 +24,25 @@ export default function TopBar() {
 
     return (
         <div className={styles.topbar}>
-            <div className={styles.logo}>
-                <span className={styles.logoIcon}>◐</span>
-                <span className={styles.logoText}>Tango</span>
+            <div className={styles.left}>
+                {onMenuClick && (
+                    <button
+                        className={`${styles.iconBtn} ${styles.menuBtn}`}
+                        onClick={onMenuClick}
+                        title="Journey levels"
+                        aria-label="Open journey levels"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="3" y1="7" x2="21" y2="7" />
+                            <line x1="3" y1="12" x2="15" y2="12" />
+                            <line x1="3" y1="17" x2="12" y2="17" />
+                        </svg>
+                    </button>
+                )}
+                <div className={styles.logo}>
+                    <span className={styles.logoIcon}>◐</span>
+                    <span className={styles.logoText}>Tango</span>
+                </div>
             </div>
             <div className={styles.actions} />
             <div className={styles.volumeFloating}>

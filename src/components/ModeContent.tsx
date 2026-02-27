@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { useGame } from '@/lib/game-state';
-import JourneyGrid from './JourneyGrid';
 import styles from './ModeContent.module.css';
 
 function DailyCard() {
@@ -31,7 +30,16 @@ export default function ModeContent() {
     const { state } = useGame();
 
     if (state.mode === 'journey') {
-        return <JourneyGrid />;
+        return (
+            <div className={styles.dailyCard}>
+                <p className={styles.label}>Journey</p>
+                <div className={styles.valueRow}>
+                    <span className={styles.primary}>Level {state.journeyLevel ?? state.level}</span>
+                    <span className={styles.badge}>Stars {state.journeyStars}</span>
+                </div>
+                <p className={styles.caption}>Use the menu to pick another level without leaving your run.</p>
+            </div>
+        );
     }
 
     return <DailyCard />;

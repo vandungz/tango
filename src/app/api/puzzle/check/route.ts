@@ -17,6 +17,17 @@ const db = prisma as unknown as {
     journeyResult: any;
 };
 
+const FALLBACK_DURATION_SECONDS = 999_999; // avoids zero-duration runs from earning max stars
+
+function normalizeDuration(raw: unknown) {
+    const parsed = Number(raw);
+    const isValid = Number.isFinite(parsed) && parsed > 0;
+    return {
+        durationSeconds: isValid ? Math.round(parsed) : FALLBACK_DURATION_SECONDS,
+        hasDuration: isValid,
+    };
+}
+
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
@@ -48,8 +59,8 @@ export async function POST(request: NextRequest) {
 
         if (complete && sessionId) {
             if (mode === 'daily') {
-                const durationSeconds = Number(meta?.durationSeconds ?? 0);
-                const stars = starsFromTime(durationSeconds);
+                const { durationSeconds, hasDuration } = normalizeDuration(meta?.durationSeconds);
+                const stars = hasDuration ? starsFromTime(durationSeconds) : 0;
 
                 // locate daily puzzle by id/date/puzzleId
                 const dailyId = typeof meta?.dailyId === 'string' ? meta?.dailyId : undefined;
@@ -64,8 +75,10 @@ export async function POST(request: NextRequest) {
                         where: { sessionId_dailyPuzzleId: { sessionId, dailyPuzzleId: daily.id } },
                     });
 
-                    const bestTime = existing ? Math.min(existing.durationSeconds, durationSeconds) : durationSeconds;
-                    const bestStars = Math.max(stars, existing?.stars ?? 0);
+                    const validExistingTime = existing && existing.durationSeconds > 0 ? existing.durationSeconds : null;
+                    const bestTime = validExistingTime ? Math.min(validExistingTime, durationSeconds) : durationSeconds;
+                    const baselineStars = validExistingTime ? starsFromTime(validExistingTime) : 0;
+                    const bestStars = Math.max(stars, baselineStars);
 
                     await db.dailyResult.upsert({
                         where: { sessionId_dailyPuzzleId: { sessionId, dailyPuzzleId: daily.id } },
@@ -84,8 +97,8 @@ export async function POST(request: NextRequest) {
             }
 
             if (mode === 'journey') {
-                const durationSeconds = Number(meta?.durationSeconds ?? 0);
-                const stars = starsFromTime(durationSeconds);
+                const { durationSeconds, hasDuration } = normalizeDuration(meta?.durationSeconds);
+                const stars = hasDuration ? starsFromTime(durationSeconds) : 0;
                 const levelId = typeof meta?.levelId === 'string' ? meta.levelId : undefined;
                 const levelOrder = Number.isFinite(meta?.level as number) ? Number(meta?.level) : undefined;
 
@@ -100,8 +113,10 @@ export async function POST(request: NextRequest) {
                         where: { sessionId_levelId: { sessionId, levelId: level.id } },
                     });
 
-                    const bestStars = Math.max(stars, existing?.stars ?? 0);
-                    const bestTime = existing ? Math.min(existing.timeSeconds, durationSeconds) : durationSeconds;
+                    const validExistingTime = existing && existing.timeSeconds > 0 ? existing.timeSeconds : null;
+                    const bestTime = validExistingTime ? Math.min(validExistingTime, durationSeconds) : durationSeconds;
+                    const baselineStars = validExistingTime ? starsFromTime(validExistingTime) : 0;
+                    const bestStars = Math.max(stars, baselineStars);
 
                     await db.journeyResult.upsert({
                         where: { sessionId_levelId: { sessionId, levelId: level.id } },

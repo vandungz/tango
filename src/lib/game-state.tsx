@@ -42,6 +42,7 @@ interface GameState {
     errors: [number, number][];
     hintCell: { row: number; col: number } | null;
     loading: boolean;
+    hasChosenMode: boolean;
 }
 
 type GameAction =
@@ -50,13 +51,15 @@ type GameAction =
     | { type: 'UNDO' }
     | { type: 'REDO' }
     | { type: 'RESET' }
+    | { type: 'GO_HOME' }
     | { type: 'TICK' }
     | { type: 'SET_ERRORS'; errors: [number, number][] }
     | { type: 'SET_WON' }
     | { type: 'SET_HINT'; row: number; col: number; value: CellValue }
     | { type: 'CLEAR_HINT' }
     | { type: 'SET_LOADING'; loading: boolean }
-    | { type: 'UPDATE_META'; payload: Partial<Pick<GameState, 'journeyStars' | 'journeyBestTime' | 'currentStreak' | 'bestStreak'>> };
+    | { type: 'UPDATE_META'; payload: Partial<Pick<GameState, 'journeyStars' | 'journeyBestTime' | 'currentStreak' | 'bestStreak'>> }
+    | { type: 'SET_MODE_SELECTED'; mode: GameMode };
 
 function cloneBoard(b: CellValue[][]): CellValue[][] {
     return b.map(r => [...r]);
@@ -88,7 +91,8 @@ const initialState: GameState = {
     isWon: false,
     errors: [],
     hintCell: null,
-    loading: true,
+    loading: false,
+    hasChosenMode: false,
 };
 
 const VALIDATION_DELAY_MS = 2300;
@@ -100,6 +104,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             const board = action.payload.board;
             return {
                 ...initialState,
+                hasChosenMode: true,
                 puzzleId: action.payload.puzzleId,
                 dailyId: action.payload.dailyId ?? null,
                 dailyDate: action.payload.dailyDate ?? null,
@@ -124,6 +129,29 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 loading: false,
             };
         }
+
+        case 'SET_MODE_SELECTED':
+            return {
+                ...state,
+                mode: action.mode,
+                hasChosenMode: true,
+                loading: true,
+                board: [],
+                initialBoard: [],
+                clues: [],
+                journeyLevel: null,
+                journeyLevelId: null,
+                moveHistory: [],
+                moveIndex: -1,
+                timer: 0,
+                errors: [],
+                hintCell: null,
+                isComplete: false,
+                isWon: false,
+            };
+
+        case 'GO_HOME':
+            return { ...initialState };
 
         case 'PLACE_CELL': {
             if (state.isComplete || state.isWon) return state;
@@ -235,6 +263,7 @@ interface GameContextType {
     undo: () => void;
     redo: () => void;
     reset: () => void;
+    goHome: () => void;
     checkSolution: () => Promise<void>;
     requestHint: () => Promise<void>;
     newGame: (size?: BoardSize) => Promise<void>;
@@ -316,7 +345,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const loadDaily = useCallback(async () => {
-        dispatch({ type: 'SET_LOADING', loading: true });
+        dispatch({ type: 'SET_MODE_SELECTED', mode: 'daily' });
         try {
             const sessionId = getSessionId();
             const res = await fetch(`/api/daily?sessionId=${sessionId}`);
@@ -351,7 +380,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }, [cancelPendingHint, restartValidationDelay]);
 
     const loadJourneyLevel = useCallback(async (level?: number) => {
-        dispatch({ type: 'SET_LOADING', loading: true });
+        dispatch({ type: 'SET_MODE_SELECTED', mode: 'journey' });
         try {
             const sessionId = getSessionId();
             const rawTarget = level ?? journeySummary.nextLevel ?? 1;
@@ -392,9 +421,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     // Load initial data
     useEffect(() => {
-        loadDaily();
         refreshJourneyProgress();
-    }, [loadDaily, refreshJourneyProgress]);
+    }, [refreshJourneyProgress]);
 
     const placeCell = useCallback((row: number, col: number) => {
         if (state.initialBoard[row]?.[col]) return;
@@ -436,6 +464,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         cancelPendingHint(true);
         dispatch({ type: 'RESET' });
     }, [cancelPendingHint, restartValidationDelay]);
+
+    const goHome = useCallback(() => {
+        cancelPendingHint(true);
+        if (validationTimeoutRef.current) {
+            clearTimeout(validationTimeoutRef.current);
+            validationTimeoutRef.current = null;
+        }
+        suppressErrorsUntilRef.current = Date.now() + VALIDATION_DELAY_MS;
+        dispatch({ type: 'GO_HOME' });
+    }, [cancelPendingHint]);
 
     const checkSolution = useCallback(async (boardOverride?: Board, boardKey?: string) => {
         if (!state.puzzleId) return;
@@ -610,7 +648,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     return (
         <GameContext.Provider value={{
-            state, placeCell, undo, redo, reset, checkSolution, requestHint, newGame,
+            state, placeCell, undo, redo, reset, goHome, checkSolution, requestHint, newGame,
             loadDaily, loadJourneyLevel, journeyProgress, journeySummary,
             boardSize, setBoardSize, soundVolume, setSoundVolume,
         }}>

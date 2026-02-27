@@ -4,6 +4,11 @@
   border-radius: 18px;
   padding: 14px;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.07);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: 100%;
 }
 
 .panelHeader {
@@ -42,9 +47,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   gap: 10px;
-  max-height: 420px;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 2px;
+  width: 100%;
 }
 
 .card {

@@ -16,10 +16,10 @@ function addDaysUtc(date: Date, days: number): Date {
 }
 
 export function starsFromTime(seconds: number | null | undefined): number {
-    if (!Number.isFinite(seconds) || seconds === null || seconds === undefined) return 1;
+    if (!Number.isFinite(seconds) || seconds === null || seconds === undefined) return 0;
     if (seconds <= 120) return 3;
     if (seconds <= 240) return 2;
-    return 1;
+    return 0;
 }
 
 export async function computeDailyStreak(sessionId: string, referenceDate: Date = new Date()) {

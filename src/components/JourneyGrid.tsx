@@ -4,6 +4,10 @@ import React, { useMemo } from 'react';
 import { useGame } from '@/lib/game-state';
 import styles from './JourneyGrid.module.css';
 
+type JourneyGridProps = {
+    onSelectLevel?: (level: number) => void;
+};
+
 function StarRow({ count }: { count: number }) {
     const stars = Math.min(3, Math.max(0, count));
     return (
@@ -22,7 +26,7 @@ function StarRow({ count }: { count: number }) {
     );
 }
 
-export default function JourneyGrid() {
+export default function JourneyGrid({ onSelectLevel }: JourneyGridProps) {
     const { journeyProgress, journeySummary, loadJourneyLevel, state } = useGame();
 
     const progressMap = useMemo(() => {
@@ -47,11 +51,17 @@ export default function JourneyGrid() {
                     const locked = level > journeySummary.nextLevel;
                     const active = state.mode === 'journey' && state.journeyLevel === level;
 
+                    const handleClick = () => {
+                        if (locked) return;
+                        loadJourneyLevel(level);
+                        if (onSelectLevel) onSelectLevel(level);
+                    };
+
                     return (
                         <button
                             key={level}
                             className={`${styles.card} ${locked ? styles.locked : ''} ${active ? styles.active : ''}`}
-                            onClick={() => !locked && loadJourneyLevel(level)}
+                            onClick={handleClick}
                             disabled={locked}
                             aria-label={`Level ${level}${locked ? ' locked' : ''}`}
                         >
