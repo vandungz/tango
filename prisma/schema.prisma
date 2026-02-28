@@ -40,6 +40,7 @@ model VerificationToken {
   identifier String   // email
   token      String   @unique
   type       String   // "email_verification" | "password_reset"
+  metadata   String?  // JSON: pending registration data (username, hashedPassword)
   expires    DateTime
   createdAt  DateTime @default(now())
 

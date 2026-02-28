@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
 type TokenType = 'email_verification' | 'password_reset';
 
@@ -27,7 +28,8 @@ export function generateToken(): string {
  */
 export async function generateVerificationToken(
     identifier: string,
-    type: TokenType
+    type: TokenType,
+    metadata?: string
 ): Promise<string> {
     // Delete any existing tokens of the same type for this identifier
     await prisma.verificationToken.deleteMany({
@@ -37,7 +39,8 @@ export async function generateVerificationToken(
         },
     });
 
-    const token = type === 'password_reset' ? generateCode() : generateToken();
+    // Use 6-digit code for both email verification and password reset
+    const token = generateCode();
     const expires = new Date(Date.now() + TOKEN_EXPIRY[type]);
 
     await prisma.verificationToken.create({
@@ -45,6 +48,7 @@ export async function generateVerificationToken(
             identifier,
             token,
             type,
+            metadata,
             expires,
         },
     });
@@ -53,12 +57,12 @@ export async function generateVerificationToken(
 }
 
 /**
- * Verify a token and return the identifier if valid
+ * Verify a token and return the identifier and metadata if valid
  */
 export async function verifyToken(
     token: string,
     type: TokenType
-): Promise<string | null> {
+): Promise<{ identifier: string; metadata?: string | null } | null> {
     const verificationToken = await prisma.verificationToken.findFirst({
         where: {
             token,
@@ -78,34 +82,78 @@ export async function verifyToken(
         where: { id: verificationToken.id },
     });
 
-    return verificationToken.identifier;
+    return {
+        identifier: verificationToken.identifier,
+        metadata: verificationToken.metadata,
+    };
 }
 
 /**
- * Send verification email
+ * Send verification email with 6-digit code
  */
 export async function sendVerificationEmail(
     email: string,
-    token: string
+    code: string
 ): Promise<void> {
-    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify?token=${token}`;
-    
+    const digits = code.split('');
+    const digitBoxes = digits.map(d =>
+        `<td style="width:44px;height:52px;background:#f0f4ff;border:2px solid #6366f1;border-radius:10px;text-align:center;vertical-align:middle;font-size:28px;font-weight:700;color:#1e1b4b;letter-spacing:0;font-family:'Courier New',monospace;">${d}</td>`
+    ).join('<td style="width:8px;"></td>');
+
     await sendEmail({
         to: email,
-        subject: 'Xác thực tài khoản',
+        subject: 'Mã xác thực đăng ký - Tango Game',
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>Xác thực tài khoản của bạn</h2>
-                <p>Cảm ơn bạn đã đăng ký! Vui lòng nhấn vào nút bên dưới để xác thực email của bạn:</p>
-                <a href="${verifyUrl}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; margin: 16px 0;">
-                    Xác thực email
-                </a>
-                <p>Hoặc copy link sau vào trình duyệt:</p>
-                <p style="color: #6b7280; word-break: break-all;">${verifyUrl}</p>
-                <p style="color: #9ca3af; font-size: 14px; margin-top: 24px;">
-                    Link này sẽ hết hạn sau 24 giờ. Nếu bạn không yêu cầu xác thực này, vui lòng bỏ qua email này.
-                </p>
-            </div>
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
+<div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a78bfa 100%);padding:36px 32px;text-align:center;">
+        <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:14px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
+            <span style="font-size:28px;">🎯</span>
+        </div>
+        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Xác thực tài khoản</h1>
+        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Chào mừng bạn đến với Tango Game!</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:32px;">
+        <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 8px;">
+            Cảm ơn bạn đã đăng ký! Vui lòng nhập mã xác thực bên dưới để hoàn tất đăng ký:
+        </p>
+        
+        <!-- Code Box -->
+        <div style="margin:24px 0;text-align:center;">
+            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+                <tr>${digitBoxes}</tr>
+            </table>
+        </div>
+
+        <!-- Timer -->
+        <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
+            <p style="margin:0;color:#92400e;font-size:13px;">
+                ⏰ Mã này sẽ hết hạn sau <strong>24 giờ</strong>
+            </p>
+        </div>
+
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+
+        <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;text-align:center;">
+            Nếu bạn không yêu cầu đăng ký tài khoản, vui lòng bỏ qua email này.<br>
+            Email được gửi tự động, vui lòng không trả lời.
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#f9fafb;padding:16px 32px;text-align:center;border-top:1px solid #f3f4f6;">
+        <p style="margin:0;color:#d1d5db;font-size:11px;">© 2026 Tango Game. All rights reserved.</p>
+    </div>
+</div>
+</body>
+</html>
         `,
     });
 }
@@ -117,21 +165,71 @@ export async function sendPasswordResetEmail(
     email: string,
     code: string
 ): Promise<void> {
+    const digits = code.split('');
+    const digitBoxes = digits.map(d =>
+        `<td style="width:44px;height:52px;background:#fef2f2;border:2px solid #ef4444;border-radius:10px;text-align:center;vertical-align:middle;font-size:28px;font-weight:700;color:#7f1d1d;letter-spacing:0;font-family:'Courier New',monospace;">${d}</td>`
+    ).join('<td style="width:8px;"></td>');
+
     await sendEmail({
         to: email,
-        subject: 'Đặt lại mật khẩu',
+        subject: 'Đặt lại mật khẩu - Tango Game',
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>Đặt lại mật khẩu</h2>
-                <p>Bạn đã yêu cầu đặt lại mật khẩu. Sử dụng mã xác thực sau:</p>
-                <div style="background-color: #f3f4f6; padding: 20px; text-align: center; margin: 16px 0; border-radius: 8px;">
-                    <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1f2937;">${code}</span>
-                </div>
-                <p style="color: #6b7280;">Mã này sẽ hết hạn sau 1 giờ.</p>
-                <p style="color: #9ca3af; font-size: 14px; margin-top: 24px;">
-                    Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
-                </p>
-            </div>
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
+<div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#dc2626 0%,#ef4444 50%,#f87171 100%);padding:36px 32px;text-align:center;">
+        <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:14px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
+            <span style="font-size:28px;">🔐</span>
+        </div>
+        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Đặt lại mật khẩu</h1>
+        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Yêu cầu khôi phục mật khẩu</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:32px;">
+        <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 8px;">
+            Bạn đã yêu cầu đặt lại mật khẩu. Nhập mã xác thực bên dưới để tiếp tục:
+        </p>
+        
+        <!-- Code Box -->
+        <div style="margin:24px 0;text-align:center;">
+            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+                <tr>${digitBoxes}</tr>
+            </table>
+        </div>
+
+        <!-- Timer -->
+        <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
+            <p style="margin:0;color:#92400e;font-size:13px;">
+                ⏰ Mã này sẽ hết hạn sau <strong>1 giờ</strong>
+            </p>
+        </div>
+
+        <!-- Security note -->
+        <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
+            <p style="margin:0;color:#991b1b;font-size:13px;">
+                🛡️ Nếu bạn <strong>không yêu cầu</strong> đặt lại mật khẩu, ai đó có thể đang cố truy cập tài khoản của bạn. Vui lòng bỏ qua email này.
+            </p>
+        </div>
+
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+
+        <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;text-align:center;">
+            Email được gửi tự động, vui lòng không trả lời.
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#f9fafb;padding:16px 32px;text-align:center;border-top:1px solid #f3f4f6;">
+        <p style="margin:0;color:#d1d5db;font-size:11px;">© 2026 Tango Game. All rights reserved.</p>
+    </div>
+</div>
+</body>
+</html>
         `,
     });
 }
@@ -146,10 +244,10 @@ interface EmailOptions {
 }
 
 async function sendEmail(options: EmailOptions): Promise<void> {
-    // Check if we're using a real email service
-    const resendApiKey = process.env.RESEND_API_KEY;
-    
-    if (!resendApiKey) {
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
+
+    if (!gmailUser || !gmailAppPassword) {
         // Development mode: log to console
         console.log('=== Email (Development Mode) ===');
         console.log(`To: ${options.to}`);
@@ -159,24 +257,18 @@ async function sendEmail(options: EmailOptions): Promise<void> {
         return;
     }
 
-    // Production: Use Resend API
-    const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: gmailUser,
+            pass: gmailAppPassword,
         },
-        body: JSON.stringify({
-            from: process.env.EMAIL_FROM || 'noreply@example.com',
-            to: options.to,
-            subject: options.subject,
-            html: options.html,
-        }),
     });
 
-    if (!response.ok) {
-        const error = await response.text();
-        console.error('Failed to send email:', error);
-        throw new Error('Failed to send email');
-    }
+    await transporter.sendMail({
+        from: `"Tango Game" <${gmailUser}>`,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+    });
 }

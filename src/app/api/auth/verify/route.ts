@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const email = await verifyToken(token, 'email_verification');
+        const result = await verifyToken(token, 'email_verification');
 
-        if (!email) {
+        if (!result) {
             return NextResponse.json(
                 { error: 'Token không hợp lệ hoặc đã hết hạn' },
                 { status: 400 }
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
         // Update user's email verification status
         await prisma.user.update({
-            where: { email },
+            where: { email: result.identifier },
             data: { emailVerified: new Date() },
         });
 

@@ -29,6 +29,14 @@ function ErrorContent() {
     return (
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
+                <Link href="/" className={styles.backHome}>
+                    ← Quay về trang chủ
+                </Link>
+                
+                <div className={styles.authLogo}>
+                    <span className={styles.authLogoIcon}>◐</span>
+                </div>
+                
                 <h1 className={styles.authTitle}>Có lỗi xảy ra</h1>
                 
                 <div className={styles.verifyStatus}>

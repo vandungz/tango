@@ -8,12 +8,18 @@ import styles from '../auth.module.css';
 function VerifyForm() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const token = searchParams.get('token');
+    const tokenParam = searchParams.get('token');
+    const emailParam = searchParams.get('email');
     
-    const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+    const [email, setEmail] = useState(emailParam || '');
+    const [code, setCode] = useState('');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const verifyEmail = useCallback(async (verifyToken: string) => {
+        setStatus('loading');
+        setIsLoading(true);
         try {
             const response = await fetch('/api/auth/verify', {
                 method: 'POST',
@@ -39,21 +45,35 @@ function VerifyForm() {
         } catch {
             setStatus('error');
             setMessage('Đã xảy ra lỗi. Vui lòng thử lại.');
+        } finally {
+            setIsLoading(false);
         }
     }, [router]);
 
     useEffect(() => {
-        if (!token) {
-            setStatus('error');
-            setMessage('Token không hợp lệ');
-            return;
+        // Auto-verify if token is provided in URL
+        if (tokenParam) {
+            verifyEmail(tokenParam);
         }
-        verifyEmail(token);
-    }, [token, verifyEmail]);
+    }, [tokenParam, verifyEmail]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email || !code) return;
+        verifyEmail(code);
+    };
 
     return (
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
+                <Link href="/" className={styles.backHome}>
+                    ← Quay về trang chủ
+                </Link>
+                
+                <div className={styles.authLogo}>
+                    <span className={styles.authLogoIcon}>◐</span>
+                </div>
+                
                 <h1 className={styles.authTitle}>Xác thực Email</h1>
 
                 {status === 'loading' && (
@@ -73,12 +93,68 @@ function VerifyForm() {
                     </div>
                 )}
 
-                {status === 'error' && (
+                {(status === 'idle' || status === 'error') && !tokenParam && (
+                    <>
+                        <p className={styles.authSubtitle}>
+                            Nhập mã xác thực 6 số đã gửi đến email của bạn
+                        </p>
+
+                        <form onSubmit={handleSubmit} className={styles.form}>
+                            {status === 'error' && <div className={styles.error}>{message}</div>}
+
+                            <div className={styles.inputGroup}>
+                                <label htmlFor="email" className={styles.label}>
+                                    Email
+                                </label>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className={styles.input}
+                                    placeholder="example@email.com"
+                                    required
+                                    disabled={isLoading}
+                                />
+                            </div>
+
+                            <div className={styles.inputGroup}>
+                                <label htmlFor="code" className={styles.label}>
+                                    Mã xác thực
+                                </label>
+                                <input
+                                    id="code"
+                                    type="text"
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    className={styles.input}
+                                    placeholder="Nhập mã 6 số"
+                                    required
+                                    maxLength={6}
+                                    pattern="\d{6}"
+                                    disabled={isLoading}
+                                    autoFocus
+                                    style={{ textAlign: 'center', letterSpacing: '0.5em', fontSize: '1.5rem' }}
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                className={styles.submitButton}
+                                disabled={isLoading || code.length !== 6}
+                            >
+                                Xác thực
+                            </button>
+                        </form>
+                    </>
+                )}
+
+                {status === 'error' && tokenParam && (
                     <div className={styles.verifyStatus}>
                         <div className={styles.errorIcon}>✕</div>
                         <div className={styles.error}>{message}</div>
                         <p className={styles.authSubtitle}>
-                            Token có thể đã hết hạn hoặc không hợp lệ.
+                            Mã có thể đã hết hạn hoặc không hợp lệ.
                         </p>
                     </div>
                 )}

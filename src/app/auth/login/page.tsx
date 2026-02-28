@@ -44,6 +44,14 @@ function LoginForm() {
     return (
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
+                <Link href="/" className={styles.backHome}>
+                    ← Quay về trang chủ
+                </Link>
+                
+                <div className={styles.authLogo}>
+                    <span className={styles.authLogoIcon}>◐</span>
+                </div>
+                
                 <h1 className={styles.authTitle}>Đăng nhập</h1>
                 <p className={styles.authSubtitle}>Chào mừng trở lại!</p>
 

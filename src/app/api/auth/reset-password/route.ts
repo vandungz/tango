@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify the code
-        const verifiedEmail = await verifyToken(code, 'password_reset');
+        const result = await verifyToken(code, 'password_reset');
 
-        if (!verifiedEmail || verifiedEmail !== email.toLowerCase()) {
+        if (!result || result.identifier !== email.toLowerCase()) {
             return NextResponse.json(
                 { error: 'Mã xác thực không hợp lệ hoặc đã hết hạn' },
                 { status: 400 }

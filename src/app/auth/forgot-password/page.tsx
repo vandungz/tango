@@ -49,6 +49,14 @@ export default function ForgotPasswordPage() {
     return (
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
+                <Link href="/" className={styles.backHome}>
+                    ← Quay về trang chủ
+                </Link>
+                
+                <div className={styles.authLogo}>
+                    <span className={styles.authLogoIcon}>◐</span>
+                </div>
+                
                 <h1 className={styles.authTitle}>Quên mật khẩu</h1>
                 <p className={styles.authSubtitle}>
                     Nhập email để nhận mã xác thực
