@@ -1,5 +1,6 @@
 // Server-side helpers for daily streaks and journey stars
 import { prisma } from '@/lib/db';
+import { PlayerIdentity } from '@/lib/player';
 
 const db = prisma as unknown as {
     dailyResult: any;
@@ -22,11 +23,12 @@ export function starsFromTime(seconds: number | null | undefined): number {
     return 0;
 }
 
-export async function computeDailyStreak(sessionId: string, referenceDate: Date = new Date()) {
+export async function computeDailyStreak(player: PlayerIdentity, referenceDate: Date = new Date()) {
     const today = startOfDayUtc(referenceDate);
+    const where = player.userId ? { userId: player.userId } : { sessionId: player.sessionId };
 
     const results = await db.dailyResult.findMany({
-        where: { sessionId },
+        where,
         include: { daily: true },
         orderBy: { daily: { date: 'desc' } },
     });

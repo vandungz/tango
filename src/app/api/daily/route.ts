@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { generatePuzzle } from '@/lib/engine/puzzle-factory';
 import { BoardSize } from '@/lib/engine/types';
 import { computeDailyStreak, startOfDayUtc, starsFromTime } from '@/lib/progression';
+import { resolvePlayerIdentity } from '@/lib/player';
 
 const DAILY_SIZE: BoardSize = 6;
 const MAX_GENERATION_ATTEMPTS = 6;
@@ -56,9 +57,13 @@ async function ensureDailyForDate(date: Date) {
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get('sessionId') || 'anonymous';
+    const player = await resolvePlayerIdentity(searchParams.get('sessionId'));
     const dateParam = searchParams.get('date');
     const targetDate = dateParam ? new Date(dateParam) : new Date();
+
+    if (!player) {
+        return NextResponse.json({ error: 'Authentication or sessionId is required' }, { status: 401 });
+    }
 
     try {
         const daily = await ensureDailyForDate(targetDate);
@@ -68,14 +73,13 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Puzzle not found for daily' }, { status: 404 });
         }
 
-        const streak = await computeDailyStreak(sessionId, targetDate);
+        const streak = await computeDailyStreak(player, targetDate);
+        const resultWhere = player.userId
+            ? { userId_dailyPuzzleId: { userId: player.userId, dailyPuzzleId: daily.id } }
+            : { sessionId_dailyPuzzleId: { sessionId: player.sessionId, dailyPuzzleId: daily.id } };
+
         const result = await db.dailyResult.findUnique({
-            where: {
-                sessionId_dailyPuzzleId: {
-                    sessionId,
-                    dailyPuzzleId: daily.id,
-                },
-            },
+            where: resultWhere,
         });
 
         return NextResponse.json({

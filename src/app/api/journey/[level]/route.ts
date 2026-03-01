@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { generatePuzzle } from '@/lib/engine/puzzle-factory';
 import { BoardSize } from '@/lib/engine/types';
 import { starsFromTime } from '@/lib/progression';
+import { resolvePlayerIdentity } from '@/lib/player';
 
 const TOTAL_LEVELS = 200;
 const JOURNEY_SIZE: BoardSize = 6;
@@ -57,7 +58,7 @@ async function ensureJourneyLevel(order: number) {
 export async function GET(request: NextRequest, context: { params: Promise<{ level: string }> }) {
     const url = new URL(request.url);
     const { searchParams } = url;
-    const sessionId = searchParams.get('sessionId');
+    const player = await resolvePlayerIdentity(searchParams.get('sessionId'));
 
     const params = await context.params;
 
@@ -65,8 +66,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ lev
     const levelSegment = params?.level ?? url.pathname.split('/').filter(Boolean).pop();
     const levelNumber = Number.parseInt(levelSegment ?? '', 10);
 
-    if (!sessionId) {
-        return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
+    if (!player) {
+        return NextResponse.json({ error: 'Authentication or sessionId is required' }, { status: 401 });
     }
 
     if (!Number.isFinite(levelNumber) || levelNumber < 1 || levelNumber > TOTAL_LEVELS) {
@@ -82,13 +83,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ lev
             return NextResponse.json({ error: 'Puzzle not found for level' }, { status: 404 });
         }
 
+        const bestWhere = player.userId
+            ? { userId_levelId: { userId: player.userId, levelId: level.id } }
+            : { sessionId_levelId: { sessionId: player.sessionId, levelId: level.id } };
+
         const best = await db.journeyResult.findUnique({
-            where: {
-                sessionId_levelId: {
-                    sessionId,
-                    levelId: level.id,
-                },
-            },
+            where: bestWhere,
         });
 
         return NextResponse.json({

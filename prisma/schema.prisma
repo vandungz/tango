@@ -18,7 +18,9 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  sessions Session[]
+  sessions       Session[]
+  dailyResults   DailyResult[]
+  journeyResults JourneyResult[]
 
   @@index([email])
   @@index([username])
@@ -92,15 +94,19 @@ model DailyPuzzle {
 
 model DailyResult {
   id              String   @id @default(cuid())
-  sessionId       String
+  sessionId       String?
+  userId          String?
   dailyPuzzleId   String
   durationSeconds Int
   stars           Int
   completedAt     DateTime @default(now())
 
   daily DailyPuzzle @relation(fields: [dailyPuzzleId], references: [id])
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([sessionId, dailyPuzzleId])
+  @@unique([userId, dailyPuzzleId])
+  @@index([userId])
   @@index([sessionId])
 }
 
@@ -116,14 +122,18 @@ model JourneyLevel {
 
 model JourneyResult {
   id          String   @id @default(cuid())
-  sessionId   String
+  sessionId   String?
+  userId      String?
   levelId     String
   timeSeconds Int
   stars       Int
   completedAt DateTime @default(now())
 
   level JourneyLevel @relation(fields: [levelId], references: [id])
+  user  User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([sessionId, levelId])
+  @@unique([userId, levelId])
+  @@index([userId])
   @@index([sessionId])
 }

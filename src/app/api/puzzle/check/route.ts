@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import { CellValue } from '@/lib/engine/types';
 import { findLogicErrors, isBoardComplete } from '@/lib/engine/validation';
 import { computeDailyStreak, startOfDayUtc, starsFromTime } from '@/lib/progression';
+import { resolvePlayerIdentity } from '@/lib/player';
 
 type Mode = 'daily' | 'journey' | 'classic';
 
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
             sessionId?: string;
             meta?: Record<string, unknown>;
         };
+        const player = await resolvePlayerIdentity(sessionId);
 
         if (!puzzleId || !board) {
             return NextResponse.json({ error: 'Missing puzzleId or board' }, { status: 400 });
@@ -57,7 +59,7 @@ export async function POST(request: NextRequest) {
 
         const extra: Record<string, unknown> = {};
 
-        if (complete && sessionId) {
+        if (complete && player) {
             if (mode === 'daily') {
                 const { durationSeconds, hasDuration } = normalizeDuration(meta?.durationSeconds);
                 const stars = hasDuration ? starsFromTime(durationSeconds) : 0;
@@ -71,27 +73,38 @@ export async function POST(request: NextRequest) {
                     : await db.dailyPuzzle.findFirst({ where: date ? { date } : { puzzleId } });
 
                 if (daily) {
-                    const existing = await db.dailyResult.findUnique({
-                        where: { sessionId_dailyPuzzleId: { sessionId, dailyPuzzleId: daily.id } },
-                    });
+                    const existingWhere = player.userId
+                        ? { userId_dailyPuzzleId: { userId: player.userId, dailyPuzzleId: daily.id } }
+                        : { sessionId_dailyPuzzleId: { sessionId: player.sessionId, dailyPuzzleId: daily.id } };
+
+                    const existing = await db.dailyResult.findUnique({ where: existingWhere });
 
                     const validExistingTime = existing && existing.durationSeconds > 0 ? existing.durationSeconds : null;
                     const bestTime = validExistingTime ? Math.min(validExistingTime, durationSeconds) : durationSeconds;
                     const baselineStars = validExistingTime ? starsFromTime(validExistingTime) : 0;
                     const bestStars = Math.max(stars, baselineStars);
 
-                    await db.dailyResult.upsert({
-                        where: { sessionId_dailyPuzzleId: { sessionId, dailyPuzzleId: daily.id } },
-                        update: { durationSeconds: bestTime, stars: bestStars },
-                        create: {
-                            sessionId,
+                    const createData = player.userId
+                        ? {
+                            userId: player.userId,
                             dailyPuzzleId: daily.id,
                             durationSeconds: bestTime,
                             stars: bestStars,
-                        },
+                        }
+                        : {
+                            sessionId: player.sessionId,
+                            dailyPuzzleId: daily.id,
+                            durationSeconds: bestTime,
+                            stars: bestStars,
+                        };
+
+                    await db.dailyResult.upsert({
+                        where: existingWhere,
+                        update: { durationSeconds: bestTime, stars: bestStars },
+                        create: createData,
                     });
 
-                    const streak = await computeDailyStreak(sessionId);
+                    const streak = await computeDailyStreak(player);
                     extra.daily = { streak: streak.current, bestStreak: streak.best, stars: bestStars };
                 }
             }
@@ -109,24 +122,35 @@ export async function POST(request: NextRequest) {
                         : await db.journeyLevel.findFirst({ where: { puzzleId } });
 
                 if (level) {
-                    const existing = await db.journeyResult.findUnique({
-                        where: { sessionId_levelId: { sessionId, levelId: level.id } },
-                    });
+                    const existingWhere = player.userId
+                        ? { userId_levelId: { userId: player.userId, levelId: level.id } }
+                        : { sessionId_levelId: { sessionId: player.sessionId, levelId: level.id } };
+
+                    const existing = await db.journeyResult.findUnique({ where: existingWhere });
 
                     const validExistingTime = existing && existing.timeSeconds > 0 ? existing.timeSeconds : null;
                     const bestTime = validExistingTime ? Math.min(validExistingTime, durationSeconds) : durationSeconds;
                     const baselineStars = validExistingTime ? starsFromTime(validExistingTime) : 0;
                     const bestStars = Math.max(stars, baselineStars);
 
-                    await db.journeyResult.upsert({
-                        where: { sessionId_levelId: { sessionId, levelId: level.id } },
-                        update: { timeSeconds: bestTime, stars: bestStars },
-                        create: {
-                            sessionId,
+                    const createData = player.userId
+                        ? {
+                            userId: player.userId,
                             levelId: level.id,
                             timeSeconds: bestTime,
                             stars: bestStars,
-                        },
+                        }
+                        : {
+                            sessionId: player.sessionId,
+                            levelId: level.id,
+                            timeSeconds: bestTime,
+                            stars: bestStars,
+                        };
+
+                    await db.journeyResult.upsert({
+                        where: existingWhere,
+                        update: { timeSeconds: bestTime, stars: bestStars },
+                        create: createData,
                     });
 
                     extra.journey = {

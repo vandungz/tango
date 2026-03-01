@@ -4,8 +4,8 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect, u
 import { CellValue, Clue, BoardSize, Board } from '@/lib/engine/types';
 import { findLogicErrors } from '@/lib/engine/validation';
 import {
-    getSessionId, getStreak, setStreak, getBestStreak,
-    incrementGamesPlayed, incrementGamesWon, getLevel, setLevel,
+    getSessionId,
+    incrementGamesPlayed, incrementGamesWon, setLevel,
     getSoundOn, getSoundVolume, setSoundVolume as saveSoundVolume,
     getBoardSize, setBoardSize as saveBoardSize,
 } from '@/lib/storage';
@@ -332,7 +332,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             const sessionId = getSessionId();
             const res = await fetch(`/api/journey?sessionId=${sessionId}`);
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
+            if (!res.ok) {
+                console.warn('Journey progress request failed:', data?.error ?? 'unknown error');
+                setJourneyProgress([]);
+                setJourneySummary({ totalLevels: 200, nextLevel: 1, starsEarned: 0 });
+                return;
+            }
             setJourneyProgress(data.progress || []);
             setJourneySummary({
                 totalLevels: data.totalLevels || 200,
@@ -510,8 +515,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
                 // Update stats
                 incrementGamesPlayed();
                 incrementGamesWon();
-                const newStreak = getStreak() + 1;
-                setStreak(newStreak);
                 setLevel(state.level + 1);
 
                 if (data.daily) {
