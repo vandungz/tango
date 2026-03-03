@@ -1,0 +1,168 @@
+.page {
+  min-height: 100vh;
+  width: 100%;
+  max-width: 1020px;
+  margin: 0 auto;
+  padding: 28px 16px 36px;
+}
+
+.panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow: var(--board-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.backLink {
+  font-size: 14px;
+  color: var(--text-primary);
+  text-decoration: none;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: var(--bg);
+}
+
+.backLink:hover {
+  background: var(--cell-bg);
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summaryCard {
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: var(--bg);
+  padding: 16px;
+}
+
+.summaryLabel {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.summaryValue {
+  margin-top: 2px;
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.summarySub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionTitle {
+  font-size: 32px;
+  letter-spacing: -0.4px;
+}
+
+.sizeTabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sizeTab {
+  border: 1px solid var(--border-color);
+  background: var(--bg);
+  color: var(--text-primary);
+  border-radius: 16px;
+  padding: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sizeTabActive {
+  background: var(--card-bg);
+  border-color: var(--accent-color);
+  outline: 2px solid var(--hint-bg);
+}
+
+.timesList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeRow {
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  padding: 14px 18px;
+  background: var(--bg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.easy {
+  background: var(--hint-bg);
+}
+
+.medium {
+  background: var(--cell-bg);
+}
+
+.hard {
+  background: var(--clue-equal-bg);
+}
+
+.veryHard {
+  background: var(--clue-cross-bg);
+}
+
+@media (max-width: 740px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sizeTabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sectionTitle {
+    font-size: 26px;
+  }
+
+  .timeRow {
+    font-size: 20px;
+  }
+}

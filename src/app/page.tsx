@@ -26,6 +26,7 @@ function HomeContent() {
   const { state, loadDaily, loadJourneyLevel, journeySummary, boardSize, goHome } = useGame();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const showGame = state.hasChosenMode && (state.loading || state.board.length > 0);
+  const drawerMode = showGame ? state.mode : 'home';
 
   const startDaily = () => {
     setDrawerOpen(false);
@@ -64,7 +65,14 @@ function HomeContent() {
         </div>
       )}
 
-      <JourneyDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onHome={handleGoHome} />
+      <JourneyDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onHome={handleGoHome}
+        mode={drawerMode}
+        onDaily={startDaily}
+        onJourney={startJourney}
+      />
       <WinModal />
     </main>
   );
