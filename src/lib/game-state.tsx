@@ -8,12 +8,25 @@ import {
     incrementGamesPlayed, incrementGamesWon, setLevel,
     getSoundOn, getSoundVolume, setSoundVolume as saveSoundVolume,
     getBoardSize, setBoardSize as saveBoardSize,
+    getProMode, setProMode as saveProMode,
 } from '@/lib/storage';
 import { playClickSound, playClearSound, playHintSound, playVictorySound, setMasterVolume } from '@/lib/sound';
 
 // — Types —
 
 type GameMode = 'daily' | 'journey';
+
+interface DailyLoadOptions {
+    size?: BoardSize;
+    proMode?: boolean;
+}
+
+interface DailyVariantProgress {
+    size: BoardSize;
+    completed: boolean;
+    durationSeconds: number | null;
+    stars: number | null;
+}
 
 interface GameState {
     puzzleId: string | null;
@@ -267,12 +280,15 @@ interface GameContextType {
     checkSolution: () => Promise<void>;
     requestHint: () => Promise<void>;
     newGame: (size?: BoardSize) => Promise<void>;
-    loadDaily: () => Promise<void>;
+    loadDaily: (options?: DailyLoadOptions) => Promise<void>;
     loadJourneyLevel: (level?: number) => Promise<void>;
     journeyProgress: JourneyProgressItem[];
     journeySummary: JourneySummary;
     boardSize: BoardSize;
     setBoardSize: (size: BoardSize) => void;
+    proMode: boolean;
+    setProMode: (enabled: boolean) => void;
+    dailyVariants: DailyVariantProgress[];
     soundVolume: number;
     setSoundVolume: (volume: number) => void;
 }
@@ -282,6 +298,8 @@ const GameContext = createContext<GameContextType | null>(null);
 export function GameProvider({ children }: { children: React.ReactNode }) {
     const [state, dispatch] = useReducer(gameReducer, initialState);
     const [boardSize, setBoardSizeState] = useState<BoardSize>(6);
+    const [proMode, setProModeState] = useState<boolean>(false);
+    const [dailyVariants, setDailyVariants] = useState<DailyVariantProgress[]>([]);
     const [soundVolume, setSoundVolumeState] = useState<number>(DEFAULT_VOLUME);
     const [journeyProgress, setJourneyProgress] = useState<JourneyProgressItem[]>([]);
     const [journeySummary, setJourneySummary] = useState<JourneySummary>({ totalLevels: 200, nextLevel: 1, starsEarned: 0 });
@@ -313,6 +331,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setSoundVolumeState(storedVolume);
         setMasterVolume(storedVolume);
         setBoardSizeState(getBoardSize());
+        setProModeState(getProMode());
     }, []);
 
     useEffect(() => {
@@ -349,17 +368,34 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         }
     }, []);
 
-    const loadDaily = useCallback(async () => {
+    const loadDaily = useCallback(async (options?: DailyLoadOptions) => {
         dispatch({ type: 'SET_MODE_SELECTED', mode: 'daily' });
         try {
             const sessionId = getSessionId();
-            const res = await fetch(`/api/daily?sessionId=${sessionId}`);
+            const selectedSize = options?.size ?? boardSize;
+            const selectedProMode = options?.proMode ?? proMode;
+            const query = new URLSearchParams({
+                sessionId,
+                size: String(selectedSize),
+                proMode: selectedProMode ? '1' : '0',
+            });
+
+            const res = await fetch(`/api/daily?${query.toString()}`);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
 
             restartValidationDelay();
             cancelPendingHint(true);
-            setBoardSizeState(data.size);
+
+            const nextSize = (data.dailyOptions?.size ?? data.size) as BoardSize;
+            const nextProMode = Boolean(data.dailyOptions?.proMode ?? selectedProMode);
+            const nextVariants = (data.dailyOptions?.variants ?? []) as DailyVariantProgress[];
+
+            setBoardSizeState(nextSize);
+            setProModeState(nextProMode);
+            setDailyVariants(nextVariants);
+            saveBoardSize(nextSize);
+            saveProMode(nextProMode);
 
             dispatch({
                 type: 'LOAD_PUZZLE',
@@ -382,7 +418,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             console.error('Failed to load daily puzzle:', error);
             dispatch({ type: 'SET_LOADING', loading: false });
         }
-    }, [cancelPendingHint, restartValidationDelay]);
+    }, [boardSize, cancelPendingHint, proMode, restartValidationDelay]);
 
     const loadJourneyLevel = useCallback(async (level?: number) => {
         dispatch({ type: 'SET_MODE_SELECTED', mode: 'journey' });
@@ -638,7 +674,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setBoardSizeState(size);
         saveBoardSize(size);
         cancelPendingHint(true);
-        loadDaily();
+        loadDaily({ size });
+    }, [cancelPendingHint, loadDaily]);
+
+    const setProMode = useCallback((enabled: boolean) => {
+        setProModeState(enabled);
+        saveProMode(enabled);
+        cancelPendingHint(true);
+        loadDaily({ proMode: enabled });
     }, [cancelPendingHint, loadDaily]);
 
     const setSoundVolume = useCallback((volume: number) => {
@@ -653,7 +696,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         <GameContext.Provider value={{
             state, placeCell, undo, redo, reset, goHome, checkSolution, requestHint, newGame,
             loadDaily, loadJourneyLevel, journeyProgress, journeySummary,
-            boardSize, setBoardSize, soundVolume, setSoundVolume,
+            boardSize, setBoardSize, proMode, setProMode, dailyVariants, soundVolume, setSoundVolume,
         }}>
             {children}
         </GameContext.Provider>

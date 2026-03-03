@@ -2,38 +2,13 @@
 
 import React from 'react';
 import { useGame } from '@/lib/game-state';
+import { journeyStarsFromTime, journeyStarThresholds } from '@/lib/journey-stars';
 import styles from './GameHeader.module.css';
 
 function formatDateLabel(iso: string | null): string {
     if (!iso) return 'Today';
     const date = new Date(iso);
     return date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-}
-
-function clamp(value: number, min: number, max: number) {
-    return Math.min(max, Math.max(min, value));
-}
-
-function thresholdsForDifficulty(difficulty: number, label: string) {
-    const normalized = clamp(Math.round(difficulty) || 1, 1, 5);
-    const lower = label.toLowerCase();
-
-    // Bias the window down for harder labels; all current puzzles are Very Hard so keep the budget tight.
-    const labelFactor = lower.includes('very hard') ? 0.78 : lower.includes('hard') ? 0.88 : 1;
-    const difficultyFactor = 1 - (normalized - 1) * 0.08; // each step trims ~8%
-
-    const base3Star = clamp(Math.round(150 * labelFactor * difficultyFactor), 75, 180);
-    const base2Star = Math.round(base3Star + 80 * labelFactor);
-    const maxTime = Math.round(base2Star + 90 * labelFactor);
-
-    return { threeStar: base3Star, twoStar: base2Star, maxTime };
-}
-
-function potentialStars(seconds: number, threeStar: number, twoStar: number, maxTime: number): number {
-    if (seconds >= maxTime) return 0;
-    if (seconds <= threeStar) return 3;
-    if (seconds <= twoStar) return 2;
-    return 1;
 }
 
 export default function GameHeader() {
@@ -44,14 +19,14 @@ export default function GameHeader() {
     const difficulty = isDaily ? formatDateLabel(state.dailyDate) : state.label;
     const meta = isDaily ? `Streak ${state.currentStreak} | Best ${state.bestStreak}` : `Stars ${state.journeyStars}`;
 
-    const { threeStar, twoStar, maxTime } = thresholdsForDifficulty(state.difficulty, state.label);
-    const starCount = potentialStars(state.timer, threeStar, twoStar, maxTime);
+    const { threeStar, twoStar, maxTime } = journeyStarThresholds(state.difficulty, state.label);
+    const starCount = journeyStarsFromTime(state.timer, state.difficulty, state.label);
     const elapsed = Math.min(state.timer, maxTime);
     const remaining = Math.max(0, maxTime - elapsed);
     const remainingPct = (remaining / maxTime) * 100;
 
-    const markerThreePct = clamp(((maxTime - threeStar) / maxTime) * 100, 0, 100);
-    const markerTwoPct = clamp(((maxTime - twoStar) / maxTime) * 100, 0, 100);
+    const markerThreePct = Math.min(100, Math.max(0, ((maxTime - threeStar) / maxTime) * 100));
+    const markerTwoPct = Math.min(100, Math.max(0, ((maxTime - twoStar) / maxTime) * 100));
     const markers = [
         { id: 3, pct: markerThreePct },
         { id: 2, pct: markerTwoPct },

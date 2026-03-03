@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useGame } from '@/lib/game-state';
+import { journeyStarsFromTime } from '@/lib/journey-stars';
 import { getStreak, getBestStreak, getGamesPlayed, getGamesWon } from '@/lib/storage';
 import styles from './WinModal.module.css';
 
@@ -11,19 +12,12 @@ function formatTime(seconds: number): string {
     return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function starsFromTime(seconds: number): number {
-    if (!Number.isFinite(seconds)) return 1;
-    if (seconds <= 120) return 3;
-    if (seconds <= 240) return 2;
-    return 1;
-}
-
 export default function WinModal() {
     const { state, newGame } = useGame();
     const [stats, setStats] = useState({ streak: 0, best: 0, played: 0, won: 0 });
 
     const isJourney = state.mode === 'journey';
-    const stars = isJourney ? Math.max(state.journeyStars, starsFromTime(state.timer)) : 0;
+    const stars = isJourney ? journeyStarsFromTime(state.timer, state.difficulty, state.label) : 0;
 
     useEffect(() => {
         if (state.isWon) {

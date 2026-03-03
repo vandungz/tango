@@ -17,7 +17,7 @@ export default function ProfilePage() {
     }, [status, router]);
 
     const handleLogout = async () => {
-        await signOut({ callbackUrl: '/' });
+        await signOut({ callbackUrl: '/auth/login' });
     };
 
     if (status === 'loading') {
