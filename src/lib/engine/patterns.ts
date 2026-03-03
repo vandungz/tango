@@ -19,6 +19,30 @@ function rawToCells(pattern: RawPattern): CellValue[] {
     return pattern.map(v => (v === 0 ? 'sun' : 'moon'));
 }
 
+function invertPattern(pattern: CellValue[]): CellValue[] {
+    return pattern.map(value => (value === 'sun' ? 'moon' : 'sun'));
+}
+
+function reflectPattern(pattern: CellValue[]): CellValue[] {
+    return [...pattern].reverse();
+}
+
+function patternKey(pattern: CellValue[]): string {
+    return pattern.map(value => (value === 'sun' ? 'S' : 'M')).join('');
+}
+
+function canonicalKey(pattern: CellValue[]): string {
+    const variants: CellValue[][] = [
+        pattern,
+        reflectPattern(pattern),
+        invertPattern(pattern),
+        reflectPattern(invertPattern(pattern)),
+    ];
+
+    const keys = variants.map(patternKey).sort();
+    return keys[0];
+}
+
 function generateValidPatterns(size: BoardSize): CellValue[][] {
     const half = size / 2;
     const patterns: CellValue[][] = [];
@@ -44,12 +68,48 @@ function generateValidPatterns(size: BoardSize): CellValue[][] {
 }
 
 const PATTERN_CACHE: Partial<Record<BoardSize, CellValue[][]>> = {};
+const BASE_PATTERN_CACHE: Partial<Record<BoardSize, CellValue[][]>> = {};
 
 export function getAllPatterns(size: BoardSize): CellValue[][] {
     if (!PATTERN_CACHE[size]) {
         PATTERN_CACHE[size] = generateValidPatterns(size);
     }
     return PATTERN_CACHE[size] as CellValue[][];
+}
+
+export function getBasePatterns(size: BoardSize): CellValue[][] {
+    if (!BASE_PATTERN_CACHE[size]) {
+        const all = getAllPatterns(size);
+        const seen = new Set<string>();
+        const base: CellValue[][] = [];
+
+        for (const pattern of all) {
+            const key = canonicalKey(pattern);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            base.push(pattern);
+        }
+
+        BASE_PATTERN_CACHE[size] = base;
+    }
+
+    return BASE_PATTERN_CACHE[size] as CellValue[][];
+}
+
+export function getPatternVariations(basePattern: CellValue[]): CellValue[][] {
+    const variants = [
+        basePattern,
+        reflectPattern(basePattern),
+        invertPattern(basePattern),
+        reflectPattern(invertPattern(basePattern)),
+    ];
+
+    const deduped = new Map<string, CellValue[]>();
+    for (const variant of variants) {
+        deduped.set(patternKey(variant), variant);
+    }
+
+    return Array.from(deduped.values());
 }
 
 // Shuffle array in-place (Fisher-Yates)

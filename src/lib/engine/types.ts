@@ -25,6 +25,7 @@ export interface SolveResult {
   solved: boolean;
   solution: Board;
   difficulty: number;
+  maxRuleDifficulty: number;
   steps: SolveStep[];
   rulesUsed: string[];
 }
@@ -34,6 +35,13 @@ export interface Puzzle {
   solution: Board;    // complete solution
   clues: Clue[];
   difficulty: number;
+  maxRuleDifficulty: number;
+  rulesUsed: string[];
+  clueCount: number;
+  givensCount: number;
+  baseRowPatternCount: number;
+  generationVersion: string;
+  solverVersion: string;
   label: string;      // Easy, Medium, Hard, Very Hard
   size: number;
 }
@@ -54,10 +62,12 @@ export const BOARD_CONFIGS: Record<BoardSize, BoardConfig> = {
   10: { size: 10, half: 5,  minClues: 8,  maxClues: 16 },
 };
 
-export function getDifficultyLabel(difficulty: number): string {
-  if (difficulty <= 6) return 'Easy';
-  if (difficulty <= 15) return 'Medium';
-  if (difficulty <= 30) return 'Hard';
+export function getDifficultyLabel(difficulty: number, maxRuleDifficulty?: number): string {
+  const peak = Math.max(1, Math.floor(maxRuleDifficulty ?? 1));
+
+  if (peak <= 1 && difficulty <= 24) return 'Easy';
+  if (peak <= 4) return 'Medium';
+  if (peak <= 9) return 'Hard';
   return 'Very Hard';
 }
 

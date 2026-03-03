@@ -1,6 +1,3 @@
-// Step 4 (used by Step 3): Rule-based solver with 10 difficulty rules
-// Returns solve steps for hint system and difficulty scoring
-
 import { Board, Clue, CellValue, SolveStep, SolveResult, cloneBoard, oppositeValue } from './types';
 
 type Rule = {
@@ -9,181 +6,229 @@ type Rule = {
     apply: (board: Board, clues: Clue[], size: number) => SolveStep[];
 };
 
-// Helper: count values in a line
+type LineKind = 'row' | 'col';
+
 function countInLine(line: CellValue[]): { sun: number; moon: number; empty: number } {
-    let sun = 0, moon = 0, empty = 0;
-    for (const v of line) {
-        if (v === 'sun') sun++;
-        else if (v === 'moon') moon++;
-        else empty++;
+    let sun = 0;
+    let moon = 0;
+    let empty = 0;
+
+    for (const value of line) {
+        if (value === 'sun') sun += 1;
+        else if (value === 'moon') moon += 1;
+        else empty += 1;
     }
+
     return { sun, moon, empty };
 }
 
-// Helper: get row
-function getRow(board: Board, r: number): CellValue[] {
-    return board[r];
+function getRow(board: Board, row: number): CellValue[] {
+    return board[row];
 }
 
-// Helper: get column
-function getCol(board: Board, c: number, size: number): CellValue[] {
-    const col: CellValue[] = [];
-    for (let r = 0; r < size; r++) {
-        col.push(board[r][c]);
-    }
-    return col;
+function getCol(board: Board, col: number, size: number): CellValue[] {
+    const values: CellValue[] = [];
+    for (let row = 0; row < size; row++) values.push(board[row][col]);
+    return values;
 }
 
-// Helper: find clue between two cells
-function findClue(clues: Clue[], r1: number, c1: number, r2: number, c2: number): Clue | undefined {
+function isInside(size: number, row: number, col: number): boolean {
+    return row >= 0 && row < size && col >= 0 && col < size;
+}
+
+function getClueEndpoints(clue: Clue): [[number, number], [number, number]] {
+    const a: [number, number] = [clue.row, clue.col];
+    const b: [number, number] = clue.direction === 'h' ? [clue.row, clue.col + 1] : [clue.row + 1, clue.col];
+    return [a, b];
+}
+
+function getClueBetween(clues: Clue[], r1: number, c1: number, r2: number, c2: number): Clue | undefined {
     return clues.find(clue => {
-        if (clue.direction === 'h') {
-            return clue.row === r1 && clue.col === c1 && r2 === r1 && c2 === c1 + 1;
-        } else {
-            return clue.row === r1 && clue.col === c1 && r2 === r1 + 1 && c2 === c1;
-        }
+        const [[aRow, aCol], [bRow, bCol]] = getClueEndpoints(clue);
+        return (aRow === r1 && aCol === c1 && bRow === r2 && bCol === c2) || (aRow === r2 && aCol === c2 && bRow === r1 && bCol === c1);
     });
 }
 
-// Helper: get clue between two adjacent cells (checks both orders)
-function getClueBetween(clues: Clue[], r1: number, c1: number, r2: number, c2: number): Clue | undefined {
-    return findClue(clues, r1, c1, r2, c2) || findClue(clues, r2, c2, r1, c1);
+function pushStep(steps: SolveStep[], row: number, col: number, value: CellValue, rule: string, difficulty: number): void {
+    if (!value) return;
+    steps.push({ row, col, value, rule, difficulty });
 }
 
-// Rule 1: Clue Propagation (difficulty 1)
-// If one side of "=" or "×" is filled, fill the other
-function cluePropagation(board: Board, clues: Clue[], size: number): SolveStep[] {
+function addLineSteps(
+    steps: SolveStep[],
+    board: Board,
+    line: CellValue[],
+    lineKind: LineKind,
+    lineIndex: number,
+    valueForEmpty: CellValue,
+    rule: string,
+    difficulty: number,
+): void {
+    for (let offset = 0; offset < line.length; offset++) {
+        if (line[offset]) continue;
+        const row = lineKind === 'row' ? lineIndex : offset;
+        const col = lineKind === 'row' ? offset : lineIndex;
+        if (!board[row][col]) {
+            pushStep(steps, row, col, valueForEmpty, rule, difficulty);
+        }
+    }
+}
+
+function canPlace(board: Board, clues: Clue[], size: number, row: number, col: number, value: CellValue): boolean {
+    if (!value) return false;
+    if (!isInside(size, row, col)) return false;
+    if (board[row][col]) return board[row][col] === value;
+
+    const half = size / 2;
+
+    const test = cloneBoard(board);
+    test[row][col] = value;
+
+    const rowValues = getRow(test, row);
+    const rowCount = countInLine(rowValues);
+    if (rowCount.sun > half || rowCount.moon > half) return false;
+
+    const colValues = getCol(test, col, size);
+    const colCount = countInLine(colValues);
+    if (colCount.sun > half || colCount.moon > half) return false;
+
+    for (let c = Math.max(0, col - 2); c <= Math.min(size - 3, col); c++) {
+        const a = test[row][c];
+        const b = test[row][c + 1];
+        const d = test[row][c + 2];
+        if (a && b && d && a === b && b === d) return false;
+    }
+
+    for (let r = Math.max(0, row - 2); r <= Math.min(size - 3, row); r++) {
+        const a = test[r][col];
+        const b = test[r + 1][col];
+        const d = test[r + 2][col];
+        if (a && b && d && a === b && b === d) return false;
+    }
+
+    const neighbors: [number, number][] = [
+        [row - 1, col],
+        [row + 1, col],
+        [row, col - 1],
+        [row, col + 1],
+    ];
+
+    for (const [nr, nc] of neighbors) {
+        if (!isInside(size, nr, nc)) continue;
+
+        const clue = getClueBetween(clues, row, col, nr, nc);
+        if (!clue) continue;
+
+        const other = test[nr][nc];
+        if (!other) continue;
+
+        if (clue.type === '=' && other !== value) return false;
+        if (clue.type === 'x' && other === value) return false;
+    }
+
+    return true;
+}
+
+function applyCandidate(board: Board, clues: Clue[], size: number, row: number, col: number, value: CellValue): boolean {
+    if (!value) return false;
+    if (board[row][col]) return board[row][col] === value;
+    if (!canPlace(board, clues, size, row, col, value)) return false;
+    board[row][col] = value;
+    return true;
+}
+
+function cluePropagation(board: Board, clues: Clue[]): SolveStep[] {
     const steps: SolveStep[] = [];
 
     for (const clue of clues) {
-        const { row, col, direction, type } = clue;
-        let r2 = row, c2 = col;
-        if (direction === 'h') c2 = col + 1;
-        else r2 = row + 1;
+        const [[r1, c1], [r2, c2]] = getClueEndpoints(clue);
+        const left = board[r1][c1];
+        const right = board[r2][c2];
 
-        const v1 = board[row][col];
-        const v2 = board[r2][c2];
-
-        if (v1 && !v2) {
-            const val = type === '=' ? v1 : oppositeValue(v1);
-            if (val) steps.push({ row: r2, col: c2, value: val, rule: 'Clue Propagation', difficulty: 1 });
-        } else if (!v1 && v2) {
-            const val = type === '=' ? v2 : oppositeValue(v2);
-            if (val) steps.push({ row, col, value: val, rule: 'Clue Propagation', difficulty: 1 });
+        if (left && !right) {
+            pushStep(steps, r2, c2, clue.type === '=' ? left : oppositeValue(left), 'Clue Propagation', 1);
+        } else if (!left && right) {
+            pushStep(steps, r1, c1, clue.type === '=' ? right : oppositeValue(right), 'Clue Propagation', 1);
         }
     }
 
     return steps;
 }
 
-// Rule 2: Almost Full (difficulty 1)
-// If a row/col already has max of one symbol, fill rest with other
-function almostFull(board: Board, clues: Clue[], size: number): SolveStep[] {
+function almostFull(board: Board, _clues: Clue[], size: number): SolveStep[] {
     const steps: SolveStep[] = [];
     const half = size / 2;
 
-    // Check rows
-    for (let r = 0; r < size; r++) {
-        const row = getRow(board, r);
-        const { sun, moon } = countInLine(row);
-
-        if (sun === half) {
-            for (let c = 0; c < size; c++) {
-                if (!board[r][c]) steps.push({ row: r, col: c, value: 'moon', rule: 'Almost Full', difficulty: 1 });
-            }
-        } else if (moon === half) {
-            for (let c = 0; c < size; c++) {
-                if (!board[r][c]) steps.push({ row: r, col: c, value: 'sun', rule: 'Almost Full', difficulty: 1 });
-            }
-        }
+    for (let row = 0; row < size; row++) {
+        const line = getRow(board, row);
+        const { sun, moon } = countInLine(line);
+        if (sun === half) addLineSteps(steps, board, line, 'row', row, 'moon', 'Almost Full', 1);
+        if (moon === half) addLineSteps(steps, board, line, 'row', row, 'sun', 'Almost Full', 1);
     }
 
-    // Check columns
-    for (let c = 0; c < size; c++) {
-        const col = getCol(board, c, size);
-        const { sun, moon } = countInLine(col);
-
-        if (sun === half) {
-            for (let r = 0; r < size; r++) {
-                if (!board[r][c]) steps.push({ row: r, col: c, value: 'moon', rule: 'Almost Full', difficulty: 1 });
-            }
-        } else if (moon === half) {
-            for (let r = 0; r < size; r++) {
-                if (!board[r][c]) steps.push({ row: r, col: c, value: 'sun', rule: 'Almost Full', difficulty: 1 });
-            }
-        }
+    for (let col = 0; col < size; col++) {
+        const line = getCol(board, col, size);
+        const { sun, moon } = countInLine(line);
+        if (sun === half) addLineSteps(steps, board, line, 'col', col, 'moon', 'Almost Full', 1);
+        if (moon === half) addLineSteps(steps, board, line, 'col', col, 'sun', 'Almost Full', 1);
     }
 
     return steps;
 }
 
-// Rule 3: Triple Prevention (difficulty 1)
-// Two adjacent identical symbols force the neighbors to be opposite
-function triplePrevention(board: Board, clues: Clue[], size: number): SolveStep[] {
+function triplePrevention(board: Board, _clues: Clue[], size: number): SolveStep[] {
     const steps: SolveStep[] = [];
 
-    // Check rows
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size - 1; c++) {
-            const a = board[r][c];
-            const b = board[r][c + 1];
-            if (a && b && a === b) {
-                // Cell before pair
-                if (c > 0 && !board[r][c - 1]) {
-                    steps.push({ row: r, col: c - 1, value: oppositeValue(a)!, rule: 'Triple Prevention', difficulty: 1 });
-                }
-                // Cell after pair
-                if (c + 2 < size && !board[r][c + 2]) {
-                    steps.push({ row: r, col: c + 2, value: oppositeValue(a)!, rule: 'Triple Prevention', difficulty: 1 });
-                }
-            }
+    for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size - 1; col++) {
+            const a = board[row][col];
+            const b = board[row][col + 1];
+            if (!a || !b || a !== b) continue;
+
+            const opposite = oppositeValue(a);
+            if (col > 0 && !board[row][col - 1]) pushStep(steps, row, col - 1, opposite, 'Triple Prevention', 1);
+            if (col + 2 < size && !board[row][col + 2]) pushStep(steps, row, col + 2, opposite, 'Triple Prevention', 1);
         }
     }
 
-    // Check columns
-    for (let c = 0; c < size; c++) {
-        for (let r = 0; r < size - 1; r++) {
-            const a = board[r][c];
-            const b = board[r + 1][c];
-            if (a && b && a === b) {
-                if (r > 0 && !board[r - 1][c]) {
-                    steps.push({ row: r - 1, col: c, value: oppositeValue(a)!, rule: 'Triple Prevention', difficulty: 1 });
-                }
-                if (r + 2 < size && !board[r + 2][c]) {
-                    steps.push({ row: r + 2, col: c, value: oppositeValue(a)!, rule: 'Triple Prevention', difficulty: 1 });
-                }
-            }
+    for (let col = 0; col < size; col++) {
+        for (let row = 0; row < size - 1; row++) {
+            const a = board[row][col];
+            const b = board[row + 1][col];
+            if (!a || !b || a !== b) continue;
+
+            const opposite = oppositeValue(a);
+            if (row > 0 && !board[row - 1][col]) pushStep(steps, row - 1, col, opposite, 'Triple Prevention', 1);
+            if (row + 2 < size && !board[row + 2][col]) pushStep(steps, row + 2, col, opposite, 'Triple Prevention', 1);
         }
     }
 
     return steps;
 }
 
-// Rule 4: Gap Fill (difficulty 2)
-// Two identical symbols with one blank between them force the blank to be opposite
-function gapFill(board: Board, clues: Clue[], size: number): SolveStep[] {
+function gapFill(board: Board, _clues: Clue[], size: number): SolveStep[] {
     const steps: SolveStep[] = [];
 
-    // Check rows
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size - 2; c++) {
-            const a = board[r][c];
-            const b = board[r][c + 1];
-            const cc = board[r][c + 2];
-            if (a && !b && cc && a === cc) {
-                steps.push({ row: r, col: c + 1, value: oppositeValue(a)!, rule: 'Gap Fill', difficulty: 2 });
+    for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size - 2; col++) {
+            const left = board[row][col];
+            const mid = board[row][col + 1];
+            const right = board[row][col + 2];
+
+            if (left && right && !mid && left === right) {
+                pushStep(steps, row, col + 1, oppositeValue(left), 'Gap Fill', 2);
             }
         }
     }
 
-    // Check columns
-    for (let c = 0; c < size; c++) {
-        for (let r = 0; r < size - 2; r++) {
-            const a = board[r][c];
-            const b = board[r + 1][c];
-            const cc = board[r + 2][c];
-            if (a && !b && cc && a === cc) {
-                steps.push({ row: r + 1, col: c, value: oppositeValue(a)!, rule: 'Gap Fill', difficulty: 2 });
+    for (let col = 0; col < size; col++) {
+        for (let row = 0; row < size - 2; row++) {
+            const top = board[row][col];
+            const mid = board[row + 1][col];
+            const bottom = board[row + 2][col];
+
+            if (top && bottom && !mid && top === bottom) {
+                pushStep(steps, row + 1, col, oppositeValue(top), 'Gap Fill', 2);
             }
         }
     }
@@ -191,61 +236,38 @@ function gapFill(board: Board, clues: Clue[], size: number): SolveStep[] {
     return steps;
 }
 
-// Rule 5: Touching Pair (difficulty 4)
-// A blank "=" next to a filled cell determines both blanks
 function touchingPair(board: Board, clues: Clue[], size: number): SolveStep[] {
     const steps: SolveStep[] = [];
 
     for (const clue of clues) {
         if (clue.type !== '=') continue;
 
-        const { row, col, direction } = clue;
-        let r2 = row, c2 = col;
-        if (direction === 'h') c2 = col + 1;
-        else r2 = row + 1;
+        const [[r1, c1], [r2, c2]] = getClueEndpoints(clue);
+        if (board[r1][c1] || board[r2][c2]) continue;
 
-        const v1 = board[row][col];
-        const v2 = board[r2][c2];
-
-        if (v1 || v2) continue; // at least one must be filled for rule 1, here both blank
-
-        // Check adjacent cells to determine what the pair must be
-        // If pair is horizontal: check cells to the left and right
-        if (direction === 'h') {
-            // Check: if cell before col has same-direction pair
-            if (col > 0 && board[row][col - 1]) {
-                const adj = board[row][col - 1];
-                // If adj-adj also equals adj, the pair can't be adj (triple)
-                if (col > 1 && board[row][col - 2] === adj) {
-                    const val = oppositeValue(adj)!;
-                    steps.push({ row, col, value: val, rule: 'Touching Pair', difficulty: 4 });
-                    steps.push({ row, col: c2, value: val, rule: 'Touching Pair', difficulty: 4 });
-                }
+        if (clue.direction === 'h') {
+            if (c1 - 1 >= 0 && board[r1][c1 - 1]) {
+                const forced = oppositeValue(board[r1][c1 - 1]);
+                pushStep(steps, r1, c1, forced, 'Touching Pair', 4);
+                pushStep(steps, r2, c2, forced, 'Touching Pair', 4);
             }
-            if (c2 + 1 < size && board[row][c2 + 1]) {
-                const adj = board[row][c2 + 1];
-                if (c2 + 2 < size && board[row][c2 + 2] === adj) {
-                    const val = oppositeValue(adj)!;
-                    steps.push({ row, col, value: val, rule: 'Touching Pair', difficulty: 4 });
-                    steps.push({ row, col: c2, value: val, rule: 'Touching Pair', difficulty: 4 });
-                }
+
+            if (c2 + 1 < size && board[r2][c2 + 1]) {
+                const forced = oppositeValue(board[r2][c2 + 1]);
+                pushStep(steps, r1, c1, forced, 'Touching Pair', 4);
+                pushStep(steps, r2, c2, forced, 'Touching Pair', 4);
             }
         } else {
-            if (row > 0 && board[row - 1][col]) {
-                const adj = board[row - 1][col];
-                if (row > 1 && board[row - 2][col] === adj) {
-                    const val = oppositeValue(adj)!;
-                    steps.push({ row, col, value: val, rule: 'Touching Pair', difficulty: 4 });
-                    steps.push({ row: r2, col, value: val, rule: 'Touching Pair', difficulty: 4 });
-                }
+            if (r1 - 1 >= 0 && board[r1 - 1][c1]) {
+                const forced = oppositeValue(board[r1 - 1][c1]);
+                pushStep(steps, r1, c1, forced, 'Touching Pair', 4);
+                pushStep(steps, r2, c2, forced, 'Touching Pair', 4);
             }
-            if (r2 + 1 < size && board[r2 + 1][col]) {
-                const adj = board[r2 + 1][col];
-                if (r2 + 2 < size && board[r2 + 2][col] === adj) {
-                    const val = oppositeValue(adj)!;
-                    steps.push({ row, col, value: val, rule: 'Touching Pair', difficulty: 4 });
-                    steps.push({ row: r2, col, value: val, rule: 'Touching Pair', difficulty: 4 });
-                }
+
+            if (r2 + 1 < size && board[r2 + 1][c2]) {
+                const forced = oppositeValue(board[r2 + 1][c2]);
+                pushStep(steps, r1, c1, forced, 'Touching Pair', 4);
+                pushStep(steps, r2, c2, forced, 'Touching Pair', 4);
             }
         }
     }
@@ -253,127 +275,93 @@ function touchingPair(board: Board, clues: Clue[], size: number): SolveStep[] {
     return steps;
 }
 
-// Rule 6: Edge Pair / Big Gap (difficulty 6)
-function edgePairBigGap(board: Board, clues: Clue[], size: number): SolveStep[] {
+function edgePairBigGap(board: Board, _clues: Clue[], size: number): SolveStep[] {
     const steps: SolveStep[] = [];
-    const half = size / 2;
 
-    // Check rows - if count of one symbol is half-1 and there's a pattern forcing placement
-    for (let r = 0; r < size; r++) {
-        const row = getRow(board, r);
-        const { sun, moon, empty } = countInLine(row);
+    for (let row = 0; row < size; row++) {
+        const line = getRow(board, row);
 
-        if (empty <= 1) continue;
-
-        // Edge pattern: if first or last two cells form a pattern
-        // Two same at edges with stuff between
-        if (row[0] && row[size - 1] && row[0] === row[size - 1]) {
-            const val = row[0];
-            const count = val === 'sun' ? sun : moon;
-            if (count === half) continue; // already full
-
-            // Check if there's a gap pattern
-            if (!row[1] && row[0] === val) {
-                // Edge cell matches, check if placing same would cause triple
-                // If row[2] is also val, then row[1] must be opposite
-                if (row[2] === val) {
-                    steps.push({ row: r, col: 1, value: oppositeValue(val)!, rule: 'Edge Pair', difficulty: 6 });
-                }
+        if (line[0] && line[size - 1] && line[0] === line[size - 1]) {
+            const opposite = oppositeValue(line[0]);
+            if (size === 6) {
+                if (!line[1]) pushStep(steps, row, 1, opposite, 'Edge Pair / Big Gap', 6);
+                if (!line[size - 2]) pushStep(steps, row, size - 2, opposite, 'Edge Pair / Big Gap', 6);
             }
-            if (!row[size - 2] && row[size - 1] === val) {
-                if (row[size - 3] === val) {
-                    steps.push({ row: r, col: size - 2, value: oppositeValue(val)!, rule: 'Edge Pair', difficulty: 6 });
-                }
-            }
+        }
+
+        if (size >= 8 && line[0] && line[1] && line[2] && line[0] === line[1] && line[1] === line[2] && !line[size - 2]) {
+            pushStep(steps, row, size - 2, oppositeValue(line[0]), 'Edge Pair / Big Gap', 6);
+        }
+
+        if (size >= 8 && line[size - 1] && line[size - 2] && line[size - 3] && line[size - 1] === line[size - 2] && line[size - 2] === line[size - 3] && !line[1]) {
+            pushStep(steps, row, 1, oppositeValue(line[size - 1]), 'Edge Pair / Big Gap', 6);
         }
     }
 
-    // Same for columns
-    for (let c = 0; c < size; c++) {
-        const col = getCol(board, c, size);
-        const { sun, moon, empty } = countInLine(col);
+    for (let col = 0; col < size; col++) {
+        const line = getCol(board, col, size);
 
-        if (empty <= 1) continue;
-
-        if (col[0] && col[size - 1] && col[0] === col[size - 1]) {
-            const val = col[0];
-            const count = val === 'sun' ? sun : moon;
-            if (count === half) continue;
-
-            if (!col[1] && col[0] === val) {
-                if (col[2] === val) {
-                    steps.push({ row: 1, col: c, value: oppositeValue(val)!, rule: 'Edge Pair', difficulty: 6 });
-                }
+        if (line[0] && line[size - 1] && line[0] === line[size - 1]) {
+            const opposite = oppositeValue(line[0]);
+            if (size === 6) {
+                if (!line[1]) pushStep(steps, 1, col, opposite, 'Edge Pair / Big Gap', 6);
+                if (!line[size - 2]) pushStep(steps, size - 2, col, opposite, 'Edge Pair / Big Gap', 6);
             }
-            if (!col[size - 2] && col[size - 1] === val) {
-                if (col[size - 3] === val) {
-                    steps.push({ row: size - 2, col: c, value: oppositeValue(val)!, rule: 'Edge Pair', difficulty: 6 });
-                }
-            }
+        }
+
+        if (size >= 8 && line[0] && line[1] && line[2] && line[0] === line[1] && line[1] === line[2] && !line[size - 2]) {
+            pushStep(steps, size - 2, col, oppositeValue(line[0]), 'Edge Pair / Big Gap', 6);
+        }
+
+        if (size >= 8 && line[size - 1] && line[size - 2] && line[size - 3] && line[size - 1] === line[size - 2] && line[size - 2] === line[size - 3] && !line[1]) {
+            pushStep(steps, 1, col, oppositeValue(line[size - 1]), 'Edge Pair / Big Gap', 6);
         }
     }
 
     return steps;
 }
 
-// Rule 7: Equal-Gap (difficulty 7)
 function equalGap(board: Board, clues: Clue[], size: number): SolveStep[] {
     const steps: SolveStep[] = [];
-    const half = size / 2;
+
+    if (size !== 6) return steps;
 
     for (const clue of clues) {
         if (clue.type !== '=') continue;
 
-        const { row, col, direction } = clue;
-        let r2 = row, c2 = col;
-        if (direction === 'h') c2 = col + 1;
-        else r2 = row + 1;
+        const [[r1, c1], [r2, c2]] = getClueEndpoints(clue);
+        if (board[r1][c1] || board[r2][c2]) continue;
 
-        const v1 = board[row][col];
-        const v2 = board[r2][c2];
+        if (clue.direction === 'h') {
+            const isLeftEdge = c1 === 0 && c2 === 1;
+            const isRightEdge = c1 === size - 2 && c2 === size - 1;
+            if (!isLeftEdge && !isRightEdge) continue;
 
-        if (v1 || v2) continue; // both must be blank
+            const farCol = isLeftEdge ? size - 1 : 0;
+            const farValue = board[r1][farCol];
+            if (!farValue) continue;
 
-        // Check if being on one end constrains the value
-        if (direction === 'h') {
-            const rowLine = getRow(board, row);
-            const { sun, moon } = countInLine(rowLine);
-
-            // If sun is half-1, these two can only both be sun or would overflow if moon
-            if (sun === half - 1 && moon === half - 1) {
-                // The pair is equal, so both same. If we have half-1 of each, either works
-                // But we need additional constraint from adjacent
-                continue;
-            }
-            if (sun === half) {
-                // Both must be moon
-                steps.push({ row, col, value: 'moon', rule: 'Equal-Gap', difficulty: 7 });
-                steps.push({ row: r2, col: c2, value: 'moon', rule: 'Equal-Gap', difficulty: 7 });
-            } else if (moon === half) {
-                steps.push({ row, col, value: 'sun', rule: 'Equal-Gap', difficulty: 7 });
-                steps.push({ row: r2, col: c2, value: 'sun', rule: 'Equal-Gap', difficulty: 7 });
-            } else if (sun === half - 1) {
-                // If equal pair is sun, that makes sun=half. Otherwise moon would be half+1 in remaining?
-                // Not enough info on its own, skip
-            }
+            const forced = oppositeValue(farValue);
+            pushStep(steps, r1, c1, forced, 'Equal-Gap', 7);
+            pushStep(steps, r2, c2, forced, 'Equal-Gap', 7);
         } else {
-            const colLine = getCol(board, col, size);
-            const { sun, moon } = countInLine(colLine);
+            const isTopEdge = r1 === 0 && r2 === 1;
+            const isBottomEdge = r1 === size - 2 && r2 === size - 1;
+            if (!isTopEdge && !isBottomEdge) continue;
 
-            if (sun === half) {
-                steps.push({ row, col, value: 'moon', rule: 'Equal-Gap', difficulty: 7 });
-                steps.push({ row: r2, col: c2, value: 'moon', rule: 'Equal-Gap', difficulty: 7 });
-            } else if (moon === half) {
-                steps.push({ row, col, value: 'sun', rule: 'Equal-Gap', difficulty: 7 });
-                steps.push({ row: r2, col: c2, value: 'sun', rule: 'Equal-Gap', difficulty: 7 });
-            }
+            const farRow = isTopEdge ? size - 1 : 0;
+            const farValue = board[farRow][c1];
+            if (!farValue) continue;
+
+            const forced = oppositeValue(farValue);
+            pushStep(steps, r1, c1, forced, 'Equal-Gap', 7);
+            pushStep(steps, r2, c2, forced, 'Equal-Gap', 7);
         }
     }
 
     return steps;
 }
 
-// Rule 8: Opposite Inference (difficulty 9)
 function oppositeInference(board: Board, clues: Clue[], size: number): SolveStep[] {
     const steps: SolveStep[] = [];
     const half = size / 2;
@@ -381,57 +369,63 @@ function oppositeInference(board: Board, clues: Clue[], size: number): SolveStep
     for (const clue of clues) {
         if (clue.type !== 'x') continue;
 
-        const { row, col, direction } = clue;
-        let r2 = row, c2 = col;
-        if (direction === 'h') c2 = col + 1;
-        else r2 = row + 1;
-
-        const v1 = board[row][col];
+        const [[r1, c1], [r2, c2]] = getClueEndpoints(clue);
+        const v1 = board[r1][c1];
         const v2 = board[r2][c2];
 
         if (v1 || v2) continue;
 
-        // Check row/col counts to infer
-        if (direction === 'h') {
-            const rowLine = getRow(board, row);
-            const { sun, moon, empty } = countInLine(rowLine);
+        if (clue.direction === 'h') {
+            const row = getRow(board, r1);
+            const { sun, moon } = countInLine(row);
+            if (sun !== half - 1 || moon !== half - 1) continue;
 
-            // If only 2 empty and these are the × pair, we know they're different
-            if (empty === 2 && sun === half - 1 && moon === half - 1) {
-                // Need one sun and one moon among the two
-                // Check which goes where using column constraints
-                for (const tryVal of ['sun', 'moon'] as CellValue[]) {
-                    const oppVal = oppositeValue(tryVal);
-                    // Try val at (row, col), oppVal at (r2, c2)
-                    const colA = getCol(board, col, size);
-                    const colB = getCol(board, c2, size);
-                    const countA = tryVal === 'sun' ? countInLine(colA).sun : countInLine(colA).moon;
-                    const countB = oppVal === 'sun' ? countInLine(colB).sun : countInLine(colB).moon;
+            for (let col = 0; col < size; col++) {
+                if (col === c1 || col === c2) continue;
+                if (board[r1][col]) continue;
 
-                    if (countA >= half || countB >= half) {
-                        // This assignment would overflow, so the opposite must be true
-                        steps.push({ row, col, value: oppVal!, rule: 'Opposite Inference', difficulty: 9 });
-                        steps.push({ row: r2, col: c2, value: tryVal!, rule: 'Opposite Inference', difficulty: 9 });
-                        break;
+                if (canPlace(board, clues, size, r1, c1, 'sun') && canPlace(board, clues, size, r2, c2, 'moon')) {
+                    if (!canPlace(board, clues, size, r1, col, 'sun')) {
+                        pushStep(steps, r1, col, 'moon', 'Opposite Inference', 9);
+                    }
+                    if (!canPlace(board, clues, size, r1, col, 'moon')) {
+                        pushStep(steps, r1, col, 'sun', 'Opposite Inference', 9);
+                    }
+                }
+
+                if (canPlace(board, clues, size, r1, c1, 'moon') && canPlace(board, clues, size, r2, c2, 'sun')) {
+                    if (!canPlace(board, clues, size, r1, col, 'sun')) {
+                        pushStep(steps, r1, col, 'moon', 'Opposite Inference', 9);
+                    }
+                    if (!canPlace(board, clues, size, r1, col, 'moon')) {
+                        pushStep(steps, r1, col, 'sun', 'Opposite Inference', 9);
                     }
                 }
             }
         } else {
-            const colLine = getCol(board, col, size);
-            const { sun, moon, empty } = countInLine(colLine);
+            const col = getCol(board, c1, size);
+            const { sun, moon } = countInLine(col);
+            if (sun !== half - 1 || moon !== half - 1) continue;
 
-            if (empty === 2 && sun === half - 1 && moon === half - 1) {
-                for (const tryVal of ['sun', 'moon'] as CellValue[]) {
-                    const oppVal = oppositeValue(tryVal);
-                    const rowA = getRow(board, row);
-                    const rowB = getRow(board, r2);
-                    const countA = tryVal === 'sun' ? countInLine(rowA).sun : countInLine(rowA).moon;
-                    const countB = oppVal === 'sun' ? countInLine(rowB).sun : countInLine(rowB).moon;
+            for (let row = 0; row < size; row++) {
+                if (row === r1 || row === r2) continue;
+                if (board[row][c1]) continue;
 
-                    if (countA >= half || countB >= half) {
-                        steps.push({ row, col, value: oppVal!, rule: 'Opposite Inference', difficulty: 9 });
-                        steps.push({ row: r2, col: c2, value: tryVal!, rule: 'Opposite Inference', difficulty: 9 });
-                        break;
+                if (canPlace(board, clues, size, r1, c1, 'sun') && canPlace(board, clues, size, r2, c2, 'moon')) {
+                    if (!canPlace(board, clues, size, row, c1, 'sun')) {
+                        pushStep(steps, row, c1, 'moon', 'Opposite Inference', 9);
+                    }
+                    if (!canPlace(board, clues, size, row, c1, 'moon')) {
+                        pushStep(steps, row, c1, 'sun', 'Opposite Inference', 9);
+                    }
+                }
+
+                if (canPlace(board, clues, size, r1, c1, 'moon') && canPlace(board, clues, size, r2, c2, 'sun')) {
+                    if (!canPlace(board, clues, size, row, c1, 'sun')) {
+                        pushStep(steps, row, c1, 'moon', 'Opposite Inference', 9);
+                    }
+                    if (!canPlace(board, clues, size, row, c1, 'moon')) {
+                        pushStep(steps, row, c1, 'sun', 'Opposite Inference', 9);
                     }
                 }
             }
@@ -441,237 +435,216 @@ function oppositeInference(board: Board, clues: Clue[], size: number): SolveStep
     return steps;
 }
 
-// Rule 9: Inverse Big Gap (difficulty 9)
-function inverseBigGap(board: Board, clues: Clue[], size: number): SolveStep[] {
+function inverseBigGap(board: Board, _clues: Clue[], size: number): SolveStep[] {
     const steps: SolveStep[] = [];
-    const half = size / 2;
 
-    // Check rows for rare edge pattern
-    for (let r = 0; r < size; r++) {
-        const row = getRow(board, r);
-        const { sun, moon, empty } = countInLine(row);
-        if (empty < 2) continue;
+    for (let row = 0; row < size; row++) {
+        const line = getRow(board, row);
+        for (let col = 0; col < size - 3; col++) {
+            const left = line[col];
+            const gap1 = line[col + 1];
+            const gap2 = line[col + 2];
+            const right = line[col + 3];
 
-        // Pattern: filled-blank-blank-filled where outer cells are same
-        for (let c = 0; c < size - 3; c++) {
-            const a = row[c];
-            const b = row[c + 1];
-            const cc = row[c + 2];
-            const d = row[c + 3];
-            if (a && !b && !cc && d && a === d) {
-                // The two blanks must have one of each (since a===d, having both same as a would make triple possible)
-                const val = a;
-                const count = val === 'sun' ? sun : moon;
-                if (count === half - 1) {
-                    // Only one more of val allowed, so exactly one blank is val and one is opposite
-                    // But the blank next to val can't be val (would make triple with a)
-                    steps.push({ row: r, col: c + 1, value: oppositeValue(val)!, rule: 'Inverse Big Gap', difficulty: 9 });
-                    steps.push({ row: r, col: c + 2, value: val!, rule: 'Inverse Big Gap', difficulty: 9 });
-                }
-            }
+            if (!left || !right || left !== right || gap1 || gap2) continue;
+
+            const opposite = oppositeValue(left);
+            pushStep(steps, row, col + 1, opposite, 'Inverse Big Gap', 9);
+            pushStep(steps, row, col + 2, left, 'Inverse Big Gap', 9);
         }
     }
 
-    // Same for columns
-    for (let c = 0; c < size; c++) {
-        const col = getCol(board, c, size);
-        const { sun, moon, empty } = countInLine(col);
-        if (empty < 2) continue;
+    for (let col = 0; col < size; col++) {
+        const line = getCol(board, col, size);
+        for (let row = 0; row < size - 3; row++) {
+            const top = line[row];
+            const gap1 = line[row + 1];
+            const gap2 = line[row + 2];
+            const bottom = line[row + 3];
 
-        for (let r = 0; r < size - 3; r++) {
-            const a = col[r];
-            const b = col[r + 1];
-            const cc = col[r + 2];
-            const d = col[r + 3];
-            if (a && !b && !cc && d && a === d) {
-                const val = a;
-                const count = val === 'sun' ? sun : moon;
-                if (count === half - 1) {
-                    steps.push({ row: r + 1, col: c, value: oppositeValue(val)!, rule: 'Inverse Big Gap', difficulty: 9 });
-                    steps.push({ row: r + 2, col: c, value: val!, rule: 'Inverse Big Gap', difficulty: 9 });
-                }
-            }
+            if (!top || !bottom || top !== bottom || gap1 || gap2) continue;
+
+            const opposite = oppositeValue(top);
+            pushStep(steps, row + 1, col, opposite, 'Inverse Big Gap', 9);
+            pushStep(steps, row + 2, col, top, 'Inverse Big Gap', 9);
         }
     }
 
     return steps;
 }
 
-// Rule 10: Constraint Enumeration (difficulty 10)
-// When overlapping clue groups exist, enumerate all valid assignments
+function collectConstrainedEmptyCells(board: Board, clues: Clue[], size: number): [number, number][] {
+    const cells = new Set<string>();
+
+    for (const clue of clues) {
+        const [[r1, c1], [r2, c2]] = getClueEndpoints(clue);
+        if (!board[r1][c1]) cells.add(`${r1},${c1}`);
+        if (!board[r2][c2]) cells.add(`${r2},${c2}`);
+    }
+
+    if (cells.size === 0) {
+        for (let row = 0; row < size; row++) {
+            for (let col = 0; col < size; col++) {
+                if (!board[row][col]) cells.add(`${row},${col}`);
+            }
+        }
+    }
+
+    return Array.from(cells).map(item => {
+        const [row, col] = item.split(',').map(Number);
+        return [row, col] as [number, number];
+    });
+}
+
+function enumerateAssignments(
+    board: Board,
+    clues: Clue[],
+    size: number,
+    targets: [number, number][],
+    limit: number,
+): CellValue[][] {
+    const results: CellValue[][] = [];
+    const working = cloneBoard(board);
+
+    function walk(index: number): void {
+        if (results.length >= limit) return;
+
+        if (index === targets.length) {
+            const assignment = targets.map(([row, col]) => working[row][col]);
+            results.push(assignment);
+            return;
+        }
+
+        const [row, col] = targets[index];
+        if (working[row][col]) {
+            walk(index + 1);
+            return;
+        }
+
+        for (const value of ['sun', 'moon'] as CellValue[]) {
+            if (!applyCandidate(working, clues, size, row, col, value)) continue;
+            walk(index + 1);
+            working[row][col] = null;
+        }
+    }
+
+    walk(0);
+    return results;
+}
+
 function constraintEnumeration(board: Board, clues: Clue[], size: number): SolveStep[] {
     const steps: SolveStep[] = [];
-    const half = size / 2;
 
-    // Find all empty cells
-    const emptyCells: [number, number][] = [];
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-            if (!board[r][c]) emptyCells.push([r, c]);
-        }
-    }
+    const targets = collectConstrainedEmptyCells(board, clues, size);
+    if (targets.length === 0 || targets.length > 14) return steps;
 
-    if (emptyCells.length === 0 || emptyCells.length > 12) return steps; // too many to enumerate
+    const assignments = enumerateAssignments(board, clues, size, targets, 2048);
+    if (assignments.length === 0) return steps;
 
-    // Try each empty cell: check if it must be a specific value
-    for (const [er, ec] of emptyCells) {
-        let mustBeSun = true;
-        let mustBeMoon = true;
+    for (let index = 0; index < targets.length; index++) {
+        const values = new Set(assignments.map(assignment => assignment[index]));
+        if (values.size !== 1) continue;
 
-        for (const tryVal of ['sun', 'moon'] as CellValue[]) {
-            const testBoard = cloneBoard(board);
-            testBoard[er][ec] = tryVal;
-
-            if (!isValidPartial(testBoard, clues, size)) {
-                if (tryVal === 'sun') mustBeSun = false;
-                else mustBeMoon = false;
-            }
-        }
-
-        if (mustBeSun && !mustBeMoon) {
-            steps.push({ row: er, col: ec, value: 'sun', rule: 'Constraint Enumeration', difficulty: 10 });
-        } else if (mustBeMoon && !mustBeSun) {
-            steps.push({ row: er, col: ec, value: 'moon', rule: 'Constraint Enumeration', difficulty: 10 });
+        const [row, col] = targets[index];
+        const only = assignments[0][index];
+        if (!board[row][col] && only) {
+            pushStep(steps, row, col, only, 'Constraint Enumeration', 10);
         }
     }
 
     return steps;
 }
 
-// Helper: check if a partial board is still valid (no rule violations)
-function isValidPartial(board: Board, clues: Clue[], size: number): boolean {
-    const half = size / 2;
-
-    for (let r = 0; r < size; r++) {
-        const row = getRow(board, r);
-        const { sun, moon } = countInLine(row);
-        if (sun > half || moon > half) return false;
-
-        // Check triple in row
-        for (let c = 0; c < size - 2; c++) {
-            if (row[c] && row[c + 1] && row[c + 2] && row[c] === row[c + 1] && row[c + 1] === row[c + 2]) {
-                return false;
-            }
-        }
-    }
-
-    for (let c = 0; c < size; c++) {
-        const col = getCol(board, c, size);
-        const { sun, moon } = countInLine(col);
-        if (sun > half || moon > half) return false;
-
-        for (let r = 0; r < size - 2; r++) {
-            if (col[r] && col[r + 1] && col[r + 2] && col[r] === col[r + 1] && col[r + 1] === col[r + 2]) {
-                return false;
-            }
-        }
-    }
-
-    // Check clues
-    for (const clue of clues) {
-        const { row, col, direction, type } = clue;
-        let r2 = row, c2 = col;
-        if (direction === 'h') c2 = col + 1;
-        else r2 = row + 1;
-
-        const v1 = board[row][col];
-        const v2 = board[r2][c2];
-
-        if (v1 && v2) {
-            if (type === '=' && v1 !== v2) return false;
-            if (type === 'x' && v1 === v2) return false;
-        }
-    }
-
-    return true;
-}
-
-// All rules in order of difficulty
 const RULES: Rule[] = [
     { name: 'Clue Propagation', difficulty: 1, apply: cluePropagation },
     { name: 'Almost Full', difficulty: 1, apply: almostFull },
     { name: 'Triple Prevention', difficulty: 1, apply: triplePrevention },
     { name: 'Gap Fill', difficulty: 2, apply: gapFill },
     { name: 'Touching Pair', difficulty: 4, apply: touchingPair },
-    { name: 'Edge Pair', difficulty: 6, apply: edgePairBigGap },
+    { name: 'Edge Pair / Big Gap', difficulty: 6, apply: edgePairBigGap },
     { name: 'Equal-Gap', difficulty: 7, apply: equalGap },
     { name: 'Opposite Inference', difficulty: 9, apply: oppositeInference },
     { name: 'Inverse Big Gap', difficulty: 9, apply: inverseBigGap },
     { name: 'Constraint Enumeration', difficulty: 10, apply: constraintEnumeration },
 ];
 
-// Main solver function
+function dedupeAndValidateSteps(board: Board, clues: Clue[], size: number, steps: SolveStep[]): SolveStep[] {
+    const unique = new Map<string, SolveStep>();
+
+    for (const step of steps) {
+        if (!step.value) continue;
+        if (!isInside(size, step.row, step.col)) continue;
+        if (board[step.row][step.col]) continue;
+
+        const key = `${step.row},${step.col}`;
+        const existing = unique.get(key);
+
+        if (existing && existing.value !== step.value) {
+            if (step.difficulty < existing.difficulty) unique.set(key, step);
+            continue;
+        }
+
+        if (!existing || step.difficulty < existing.difficulty) {
+            unique.set(key, step);
+        }
+    }
+
+    return Array.from(unique.values()).filter(step => canPlace(board, clues, size, step.row, step.col, step.value));
+}
+
 export function solve(initialBoard: Board, clues: Clue[], size: number): SolveResult {
     const board = cloneBoard(initialBoard);
-    const allSteps: SolveStep[] = [];
-    const rulesUsed = new Set<string>();
-    let totalDifficulty = 0;
 
-    let changed = true;
-    while (changed) {
-        changed = false;
+    const steps: SolveStep[] = [];
+    const rulesUsed = new Set<string>();
+
+    let solvedDifficulty = 0;
+    let maxRuleDifficulty = 0;
+
+    let progress = true;
+    while (progress) {
+        progress = false;
 
         for (const rule of RULES) {
-            const steps = rule.apply(board, clues, size);
+            const proposed = rule.apply(board, clues, size);
+            const valid = dedupeAndValidateSteps(board, clues, size, proposed);
+            if (valid.length === 0) continue;
 
-            // Filter steps to only unfilled cells
-            const validSteps = steps.filter(s => !board[s.row][s.col] && s.value);
+            for (const step of valid) {
+                const applied = applyCandidate(board, clues, size, step.row, step.col, step.value);
+                if (!applied) continue;
 
-            // Deduplicate
-            const seen = new Set<string>();
-            const uniqueSteps: SolveStep[] = [];
-            for (const step of validSteps) {
-                const key = `${step.row},${step.col}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    uniqueSteps.push(step);
-                }
+                steps.push(step);
+                rulesUsed.add(step.rule);
+                solvedDifficulty += step.difficulty;
+                maxRuleDifficulty = Math.max(maxRuleDifficulty, step.difficulty);
             }
 
-            if (uniqueSteps.length > 0) {
-                for (const step of uniqueSteps) {
-                    board[step.row][step.col] = step.value;
-                    allSteps.push(step);
-                    rulesUsed.add(step.rule);
-                    totalDifficulty += step.difficulty;
-                }
-                changed = true;
-                break; // restart from easiest rule
-            }
+            progress = true;
+            break;
         }
     }
 
-    // Check if solved
-    let solved = true;
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-            if (!board[r][c]) {
-                solved = false;
-                break;
-            }
-        }
-        if (!solved) break;
-    }
+    const solved = board.every(line => line.every(Boolean));
 
     return {
         solved,
         solution: board,
-        difficulty: totalDifficulty,
-        steps: allSteps,
+        difficulty: solvedDifficulty,
+        maxRuleDifficulty,
+        steps,
         rulesUsed: Array.from(rulesUsed),
     };
 }
 
-// Get next hint: given current board state, find the next easiest step
 export function getNextHint(currentBoard: Board, clues: Clue[], size: number): SolveStep | null {
     const board = cloneBoard(currentBoard);
 
     for (const rule of RULES) {
-        const steps = rule.apply(board, clues, size);
-        const validSteps = steps.filter(s => !board[s.row][s.col] && s.value);
-
-        if (validSteps.length > 0) {
-            return validSteps[0];
+        const proposed = rule.apply(board, clues, size);
+        const valid = dedupeAndValidateSteps(board, clues, size, proposed);
+        if (valid.length > 0) {
+            return valid[0];
         }
     }
 

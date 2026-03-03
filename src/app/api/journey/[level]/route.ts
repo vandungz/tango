@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { generatePuzzle } from '@/lib/engine/puzzle-factory';
 import { BoardSize } from '@/lib/engine/types';
-import { starsFromTime } from '@/lib/progression';
+import { journeyStarsFromTime } from '@/lib/journey-stars';
 import { resolvePlayerIdentity } from '@/lib/player';
 
 const TOTAL_LEVELS = 200;
@@ -29,6 +29,13 @@ async function ensureVeryHardPuzzle(size: BoardSize) {
                 solution: JSON.stringify(puzzle.solution),
                 clues: JSON.stringify(puzzle.clues),
                 difficulty: puzzle.difficulty,
+                maxRuleDifficulty: puzzle.maxRuleDifficulty,
+                rulesUsed: JSON.stringify(puzzle.rulesUsed),
+                clueCount: puzzle.clueCount,
+                givensCount: puzzle.givensCount,
+                baseRowPatternCount: puzzle.baseRowPatternCount,
+                generationVersion: puzzle.generationVersion,
+                solverVersion: puzzle.solverVersion,
                 label: puzzle.label,
             },
         });
@@ -103,7 +110,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ lev
             progress: {
                 stars: best?.stars ?? 0,
                 timeSeconds: best?.timeSeconds ?? null,
-                starsFromTime: starsFromTime(best?.timeSeconds ?? null),
+                starsFromTime: journeyStarsFromTime(best?.timeSeconds ?? null, puzzle.difficulty, puzzle.label),
             },
         });
     } catch (error) {

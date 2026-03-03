@@ -60,6 +60,13 @@ model Puzzle {
   solution   String   // JSON: complete solution
   clues      String   // JSON: clue array
   difficulty Int
+  maxRuleDifficulty Int    @default(0)
+  rulesUsed          String @default("[]") // JSON: solver rule names used in solve pass
+  clueCount          Int    @default(0)
+  givensCount        Int    @default(0)
+  baseRowPatternCount Int   @default(0)
+  generationVersion  String @default("pipeline-v1")
+  solverVersion      String @default("rule-engine-v1")
   label      String   // Easy, Medium, Hard, Very Hard
   createdAt  DateTime @default(now())
 
@@ -84,12 +91,17 @@ model PlayedPuzzle {
 
 model DailyPuzzle {
   id        String   @id @default(cuid())
-  date      DateTime @unique
+  date      DateTime
+  size      Int      @default(6)
+  proMode   Boolean  @default(false)
   puzzleId  String   @unique
   createdAt DateTime @default(now())
 
   puzzle  Puzzle      @relation(fields: [puzzleId], references: [id])
   results DailyResult[]
+
+  @@unique([date, size, proMode])
+  @@index([date, proMode])
 }
 
 model DailyResult {

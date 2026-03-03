@@ -10,6 +10,7 @@ const KEYS = {
     GAMES_WON: 'tango_games_won',
     THEME: 'tango_theme',
     BOARD_SIZE: 'tango_board_size',
+    PRO_MODE: 'tango_pro_mode',
     SOUND_ON: 'tango_sound_on',
     SOUND_VOLUME: 'tango_sound_volume',
     LEVEL: 'tango_level',
@@ -83,6 +84,14 @@ export function getBoardSize(): BoardSize {
 
 export function setBoardSize(size: BoardSize): void {
     setItem(KEYS.BOARD_SIZE, String(size));
+}
+
+export function getProMode(): boolean {
+    return getItem(KEYS.PRO_MODE) === 'true';
+}
+
+export function setProMode(enabled: boolean): void {
+    setItem(KEYS.PRO_MODE, String(enabled));
 }
 
 // Sound

@@ -35,22 +35,25 @@ function boardsEqual(a: Board, b: Board, size: number): boolean {
 export function unsolve(solution: Board, clues: Clue[], size: number): Board {
     const board = cloneBoard(solution);
 
-    // Shuffle cell order for randomized removal
-    const cells = shuffle(getAllFilledCells(board, size));
+    let changed = true;
+    while (changed) {
+        changed = false;
 
-    for (const { row, col } of cells) {
-        const savedValue = board[row][col];
+        const cells = shuffle(getAllFilledCells(board, size));
 
-        // Temporarily blank out this cell
-        board[row][col] = null;
+        for (const { row, col } of cells) {
+            const savedValue = board[row][col];
 
-        // Run the solver on the puzzle
-        const result = solve(board, clues, size);
-        const solutions = countSolutions(board, clues, size, 2);
+            board[row][col] = null;
 
-        if (!(result.solved && boardsEqual(result.solution, solution, size) && solutions === 1)) {
-            // Put it back — removing this cell makes puzzle unsolvable/ambiguous
-            board[row][col] = savedValue;
+            const result = solve(board, clues, size);
+            const solutions = countSolutions(board, clues, size, 2);
+
+            if (!(result.solved && boardsEqual(result.solution, solution, size) && solutions === 1)) {
+                board[row][col] = savedValue;
+            } else {
+                changed = true;
+            }
         }
     }
 

@@ -73,6 +73,13 @@ export async function GET(request: NextRequest) {
                     solution: JSON.stringify(puzzle.solution),
                     clues: JSON.stringify(puzzle.clues),
                     difficulty: puzzle.difficulty,
+                    maxRuleDifficulty: puzzle.maxRuleDifficulty,
+                    rulesUsed: JSON.stringify(puzzle.rulesUsed),
+                    clueCount: puzzle.clueCount,
+                    givensCount: puzzle.givensCount,
+                    baseRowPatternCount: puzzle.baseRowPatternCount,
+                    generationVersion: puzzle.generationVersion,
+                    solverVersion: puzzle.solverVersion,
                     label: puzzle.label,
                 },
             });

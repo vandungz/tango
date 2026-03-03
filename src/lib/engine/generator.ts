@@ -3,7 +3,7 @@
 // with column validation and backtracking
 
 import { Board, CellValue, BoardSize } from './types';
-import { getAllPatterns, shuffle } from './patterns';
+import { getBasePatterns, getPatternVariations, shuffle } from './patterns';
 
 // Check if placing a row at rowIndex keeps all columns valid
 function isColumnValid(board: Board, rowIndex: number, size: number): boolean {
@@ -64,7 +64,8 @@ function areRowsUnique(board: Board, upToRow: number): boolean {
 }
 
 export function generateSolution(size: BoardSize): Board | null {
-    const allPatterns = getAllPatterns(size);
+    const basePatterns = getBasePatterns(size);
+    const allPatterns = basePatterns.flatMap(pattern => getPatternVariations(pattern));
     const board: Board = [];
 
     function backtrack(rowIndex: number): boolean {

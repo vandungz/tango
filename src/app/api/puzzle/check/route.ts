@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { CellValue } from '@/lib/engine/types';
 import { findLogicErrors, isBoardComplete } from '@/lib/engine/validation';
+import { journeyStarsFromTime } from '@/lib/journey-stars';
 import { computeDailyStreak, startOfDayUtc, starsFromTime } from '@/lib/progression';
 import { resolvePlayerIdentity } from '@/lib/player';
 
@@ -73,45 +74,54 @@ export async function POST(request: NextRequest) {
                     : await db.dailyPuzzle.findFirst({ where: date ? { date } : { puzzleId } });
 
                 if (daily) {
-                    const existingWhere = player.userId
-                        ? { userId_dailyPuzzleId: { userId: player.userId, dailyPuzzleId: daily.id } }
-                        : { sessionId_dailyPuzzleId: { sessionId: player.sessionId, dailyPuzzleId: daily.id } };
+                    const identityWhere = player.userId
+                        ? { userId: player.userId }
+                        : { sessionId: player.sessionId };
 
-                    const existing = await db.dailyResult.findUnique({ where: existingWhere });
-
-                    const validExistingTime = existing && existing.durationSeconds > 0 ? existing.durationSeconds : null;
-                    const bestTime = validExistingTime ? Math.min(validExistingTime, durationSeconds) : durationSeconds;
-                    const baselineStars = validExistingTime ? starsFromTime(validExistingTime) : 0;
-                    const bestStars = Math.max(stars, baselineStars);
-
-                    const createData = player.userId
-                        ? {
-                            userId: player.userId,
-                            dailyPuzzleId: daily.id,
-                            durationSeconds: bestTime,
-                            stars: bestStars,
-                        }
-                        : {
-                            sessionId: player.sessionId,
-                            dailyPuzzleId: daily.id,
-                            durationSeconds: bestTime,
-                            stars: bestStars,
-                        };
-
-                    await db.dailyResult.upsert({
-                        where: existingWhere,
-                        update: { durationSeconds: bestTime, stars: bestStars },
-                        create: createData,
+                    const existing = await db.dailyResult.findFirst({
+                        where: {
+                            ...identityWhere,
+                            daily: {
+                                date: daily.date,
+                                size: daily.size,
+                            },
+                        },
+                        include: { daily: true },
+                        orderBy: { completedAt: 'asc' },
                     });
 
+                    let savedTime = durationSeconds;
+                    let savedStars = stars;
+
+                    if (!existing) {
+                        const createData = player.userId
+                            ? {
+                                userId: player.userId,
+                                dailyPuzzleId: daily.id,
+                                durationSeconds,
+                                stars,
+                            }
+                            : {
+                                sessionId: player.sessionId,
+                                dailyPuzzleId: daily.id,
+                                durationSeconds,
+                                stars,
+                            };
+
+                        await db.dailyResult.create({ data: createData });
+                    } else {
+                        savedTime = existing.durationSeconds;
+                        savedStars = Number.isFinite(existing.stars) ? existing.stars : starsFromTime(existing.durationSeconds);
+                    }
+
                     const streak = await computeDailyStreak(player);
-                    extra.daily = { streak: streak.current, bestStreak: streak.best, stars: bestStars };
+                    extra.daily = { streak: streak.current, bestStreak: streak.best, stars: savedStars, durationSeconds: savedTime };
                 }
             }
 
             if (mode === 'journey') {
                 const { durationSeconds, hasDuration } = normalizeDuration(meta?.durationSeconds);
-                const stars = hasDuration ? starsFromTime(durationSeconds) : 0;
+                const stars = hasDuration ? journeyStarsFromTime(durationSeconds, puzzle.difficulty, puzzle.label) : 0;
                 const levelId = typeof meta?.levelId === 'string' ? meta.levelId : undefined;
                 const levelOrder = Number.isFinite(meta?.level as number) ? Number(meta?.level) : undefined;
 
@@ -130,7 +140,7 @@ export async function POST(request: NextRequest) {
 
                     const validExistingTime = existing && existing.timeSeconds > 0 ? existing.timeSeconds : null;
                     const bestTime = validExistingTime ? Math.min(validExistingTime, durationSeconds) : durationSeconds;
-                    const baselineStars = validExistingTime ? starsFromTime(validExistingTime) : 0;
+                    const baselineStars = validExistingTime ? journeyStarsFromTime(validExistingTime, puzzle.difficulty, puzzle.label) : 0;
                     const bestStars = Math.max(stars, baselineStars);
 
                     const createData = player.userId
