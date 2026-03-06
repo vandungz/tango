@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
         if (!email || !code || !password) {
             return NextResponse.json(
-                { error: 'Vui lòng điền đầy đủ thông tin' },
+                { error: 'Please fill in all required fields' },
                 { status: 400 }
             );
         }
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
         // Validate password strength
         if (password.length < 8) {
             return NextResponse.json(
-                { error: 'Mật khẩu phải có ít nhất 8 ký tự' },
+                { error: 'Password must be at least 8 characters long' },
                 { status: 400 }
             );
         }
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
         if (!result || result.identifier !== email.toLowerCase()) {
             return NextResponse.json(
-                { error: 'Mã xác thực không hợp lệ hoặc đã hết hạn' },
+                { error: 'Verification code is invalid or has expired' },
                 { status: 400 }
             );
         }
@@ -43,13 +43,13 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json(
-            { message: 'Mật khẩu đã được đặt lại thành công!' },
+            { message: 'Password has been reset successfully!' },
             { status: 200 }
         );
     } catch (error) {
         console.error('Reset password error:', error);
         return NextResponse.json(
-            { error: 'Đã xảy ra lỗi khi đặt lại mật khẩu' },
+            { error: 'An error occurred while resetting password' },
             { status: 500 }
         );
     }

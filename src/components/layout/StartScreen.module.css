@@ -30,7 +30,7 @@
 .logoIcon {
   font-size: 34px;
   font-weight: 800;
-  color: #0a1f3f;
+  color: var(--bg);
   letter-spacing: -0.6px;
 }
 

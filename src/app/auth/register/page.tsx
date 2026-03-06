@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from '../auth.module.css';
+import { useToast } from '@/components/feedback/ToastProvider';
 
 type Step = 'register' | 'verify';
 
 export default function RegisterPage() {
     const router = useRouter();
+    const toast = useToast();
     
     const [step, setStep] = useState<Step>('register');
     const [username, setUsername] = useState('');
@@ -16,19 +18,17 @@ export default function RegisterPage() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [isVerified, setIsVerified] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleRegisterSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
-        setSuccess('');
+        setIsVerified(false);
         setIsLoading(true);
 
         // Client-side validation
         if (password !== confirmPassword) {
-            setError('Mật khẩu xác nhận không khớp');
+            toast.error('Password confirmation does not match');
             setIsLoading(false);
             return;
         }
@@ -45,14 +45,13 @@ export default function RegisterPage() {
             const data = await response.json();
 
             if (!response.ok) {
-                setError(data.error || 'Đã xảy ra lỗi khi đăng ký');
+                toast.error(data.error || 'An error occurred during registration');
             } else {
                 setStep('verify');
-                setError('');
-                setSuccess(data.message);
+                toast.success(data.message);
             }
         } catch {
-            setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+            toast.error('An error occurred. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -60,8 +59,7 @@ export default function RegisterPage() {
 
     const handleVerifySubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
-        setSuccess('');
+        setIsVerified(false);
         setIsLoading(true);
 
         try {
@@ -76,24 +74,24 @@ export default function RegisterPage() {
             const data = await response.json();
 
             if (!response.ok) {
-                setError(data.error || 'Mã xác thực không hợp lệ');
+                toast.error(data.error || 'Invalid verification code');
             } else {
-                setSuccess(data.message);
+                setIsVerified(true);
+                toast.success(data.message);
                 // Redirect to login after 2 seconds
                 setTimeout(() => {
                     router.push('/auth/login');
                 }, 2000);
             }
         } catch {
-            setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+            toast.error('An error occurred. Please try again.');
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleResendCode = async () => {
-        setError('');
-        setSuccess('');
+        setIsVerified(false);
         setIsLoading(true);
 
         try {
@@ -108,12 +106,12 @@ export default function RegisterPage() {
             const data = await response.json();
 
             if (!response.ok) {
-                setError(data.error || 'Không thể gửi lại mã');
+                toast.error(data.error || 'Unable to resend code');
             } else {
-                setSuccess(data.message || 'Mã xác thực mới đã được gửi!');
+                toast.success(data.message || 'A new verification code has been sent!');
             }
         } catch {
-            setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+            toast.error('An error occurred. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -123,7 +121,7 @@ export default function RegisterPage() {
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
                 <Link href="/" className={styles.backHome}>
-                    ← Quay về trang chủ
+                    Back to home
                 </Link>
                 
                 <div className={styles.authLogo}>
@@ -132,16 +130,13 @@ export default function RegisterPage() {
                 
                 {step === 'register' ? (
                     <>
-                        <h1 className={styles.authTitle}>Đăng ký</h1>
-                        <p className={styles.authSubtitle}>Tạo tài khoản mới</p>
+                        <h1 className={styles.authTitle}>Sign up</h1>
+                        <p className={styles.authSubtitle}>Create a new account</p>
 
                         <form onSubmit={handleRegisterSubmit} className={styles.form}>
-                            {error && <div className={styles.error}>{error}</div>}
-                            {success && <div className={styles.success}>{success}</div>}
-
                             <div className={styles.inputGroup}>
                                 <label htmlFor="username" className={styles.label}>
-                                    Tên đăng nhập
+                                    Username
                                 </label>
                                 <input
                                     id="username"
@@ -149,7 +144,7 @@ export default function RegisterPage() {
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     className={styles.input}
-                                    placeholder="3-20 ký tự, chữ, số và _"
+                                    placeholder="3-20 characters, letters, numbers, and _"
                                     required
                                     disabled={isLoading}
                                 />
@@ -173,7 +168,7 @@ export default function RegisterPage() {
 
                             <div className={styles.inputGroup}>
                                 <label htmlFor="password" className={styles.label}>
-                                    Mật khẩu
+                                    Password
                                 </label>
                                 <input
                                     id="password"
@@ -181,7 +176,7 @@ export default function RegisterPage() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     className={styles.input}
-                                    placeholder="Ít nhất 8 ký tự"
+                                    placeholder="At least 8 characters"
                                     required
                                     minLength={8}
                                     disabled={isLoading}
@@ -190,7 +185,7 @@ export default function RegisterPage() {
 
                             <div className={styles.inputGroup}>
                                 <label htmlFor="confirmPassword" className={styles.label}>
-                                    Xác nhận mật khẩu
+                                    Confirm password
                                 </label>
                                 <input
                                     id="confirmPassword"
@@ -198,7 +193,7 @@ export default function RegisterPage() {
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     className={styles.input}
-                                    placeholder="Nhập lại mật khẩu"
+                                    placeholder="Re-enter password"
                                     required
                                     disabled={isLoading}
                                 />
@@ -209,31 +204,28 @@ export default function RegisterPage() {
                                 className={styles.submitButton}
                                 disabled={isLoading}
                             >
-                                {isLoading ? 'Đang gửi...' : 'Tiếp tục'}
+                                {isLoading ? 'Sending...' : 'Continue'}
                             </button>
                         </form>
 
                         <p className={styles.linkText}>
-                            Đã có tài khoản?{' '}
+                            Already have an account?{' '}
                             <Link href="/auth/login" className={styles.link}>
-                                Đăng nhập
+                                Sign in
                             </Link>
                         </p>
                     </>
                 ) : (
                     <>
-                        <h1 className={styles.authTitle}>Xác thực Email</h1>
+                        <h1 className={styles.authTitle}>Verify email</h1>
                         <p className={styles.authSubtitle}>
-                            Nhập mã 6 số đã gửi đến <strong>{email}</strong>
+                            Enter the 6-digit code sent to <strong>{email}</strong>
                         </p>
 
                         <form onSubmit={handleVerifySubmit} className={styles.form}>
-                            {error && <div className={styles.error}>{error}</div>}
-                            {success && <div className={styles.success}>{success}</div>}
-
                             <div className={styles.inputGroup}>
                                 <label htmlFor="verificationCode" className={styles.label}>
-                                    Mã xác thực
+                                    Verification code
                                 </label>
                                 <input
                                     id="verificationCode"
@@ -241,10 +233,10 @@ export default function RegisterPage() {
                                     value={verificationCode}
                                     onChange={(e) => {
                                         setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-                                        if (success) setSuccess('');
+                                        if (isVerified) setIsVerified(false);
                                     }}
                                     className={styles.input}
-                                    placeholder="Nhập mã 6 số"
+                                    placeholder="Enter 6-digit code"
                                     required
                                     maxLength={6}
                                     pattern="\d{6}"
@@ -257,21 +249,21 @@ export default function RegisterPage() {
                             <button
                                 type="submit"
                                 className={styles.submitButton}
-                                disabled={isLoading || verificationCode.length !== 6 || !!success}
+                                disabled={isLoading || verificationCode.length !== 6 || isVerified}
                             >
-                                {isLoading ? 'Đang xác thực...' : 'Xác thực'}
+                                {isLoading ? 'Verifying...' : 'Verify'}
                             </button>
                         </form>
 
                         <p className={styles.linkText}>
-                            Không nhận được mã?{' '}
+                            Didn&apos;t receive a code?{' '}
                             <button
                                 onClick={handleResendCode}
                                 className={styles.link}
                                 disabled={isLoading}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                             >
-                                Gửi lại mã
+                                Resend code
                             </button>
                         </p>
 
@@ -279,14 +271,13 @@ export default function RegisterPage() {
                             <button
                                 onClick={() => {
                                     setStep('register');
-                                    setError('');
-                                    setSuccess('');
+                                    setIsVerified(false);
                                     setVerificationCode('');
                                 }}
                                 className={styles.link}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                             >
-                                ← Quay lại đăng ký
+                                ← Back to sign up
                             </button>
                         </p>
                     </>

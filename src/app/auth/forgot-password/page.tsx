@@ -4,19 +4,19 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from '../auth.module.css';
+import { useToast } from '@/components/feedback/ToastProvider';
 
 export default function ForgotPasswordPage() {
     const router = useRouter();
+    const toast = useToast();
     
     const [email, setEmail] = useState('');
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [isSubmitted, setIsSubmitted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
-        setSuccess('');
+        setIsSubmitted(false);
         setIsLoading(true);
 
         try {
@@ -31,16 +31,17 @@ export default function ForgotPasswordPage() {
             const data = await response.json();
 
             if (!response.ok) {
-                setError(data.error || 'Đã xảy ra lỗi');
+                toast.error(data.error || 'An error occurred');
             } else {
-                setSuccess(data.message);
+                setIsSubmitted(true);
+                toast.success(data.message);
                 // Redirect to reset password page after 2 seconds
                 setTimeout(() => {
                     router.push(`/auth/reset-password?email=${encodeURIComponent(email)}`);
                 }, 2000);
             }
         } catch {
-            setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+            toast.error('An error occurred. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -50,22 +51,19 @@ export default function ForgotPasswordPage() {
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
                 <Link href="/" className={styles.backHome}>
-                    ← Quay về trang chủ
+                    Back to home
                 </Link>
                 
                 <div className={styles.authLogo}>
                     <span className={styles.authLogoIcon}>◐</span>
                 </div>
                 
-                <h1 className={styles.authTitle}>Quên mật khẩu</h1>
+                <h1 className={styles.authTitle}>Forgot password</h1>
                 <p className={styles.authSubtitle}>
-                    Nhập email để nhận mã xác thực
+                    Enter your email to receive a verification code
                 </p>
 
                 <form onSubmit={handleSubmit} className={styles.form}>
-                    {error && <div className={styles.error}>{error}</div>}
-                    {success && <div className={styles.success}>{success}</div>}
-
                     <div className={styles.inputGroup}>
                         <label htmlFor="email" className={styles.label}>
                             Email
@@ -76,24 +74,24 @@ export default function ForgotPasswordPage() {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className={styles.input}
-                            placeholder="Nhập email của bạn"
+                            placeholder="Enter your email"
                             required
-                            disabled={isLoading || !!success}
+                            disabled={isLoading || isSubmitted}
                         />
                     </div>
 
                     <button
                         type="submit"
                         className={styles.submitButton}
-                        disabled={isLoading || !!success}
+                        disabled={isLoading || isSubmitted}
                     >
-                        {isLoading ? 'Đang gửi...' : 'Gửi mã xác thực'}
+                        {isLoading ? 'Sending...' : 'Send verification code'}
                     </button>
                 </form>
 
                 <p className={styles.linkText}>
                     <Link href="/auth/login" className={styles.link}>
-                        Quay lại đăng nhập
+                        Back to sign in
                     </Link>
                 </p>
             </div>

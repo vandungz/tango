@@ -4,29 +4,29 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import styles from '../auth.module.css';
+import { useToast } from '@/components/feedback/ToastProvider';
 
 function ResetPasswordForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const emailFromUrl = searchParams.get('email') || '';
+    const toast = useToast();
     
     const [email, setEmail] = useState(emailFromUrl);
     const [code, setCode] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [isCompleted, setIsCompleted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
-        setSuccess('');
+        setIsCompleted(false);
         setIsLoading(true);
 
         // Client-side validation
         if (password !== confirmPassword) {
-            setError('Mật khẩu xác nhận không khớp');
+            toast.error('Password confirmation does not match');
             setIsLoading(false);
             return;
         }
@@ -43,16 +43,17 @@ function ResetPasswordForm() {
             const data = await response.json();
 
             if (!response.ok) {
-                setError(data.error || 'Đã xảy ra lỗi');
+                toast.error(data.error || 'An error occurred');
             } else {
-                setSuccess(data.message);
+                setIsCompleted(true);
+                toast.success(data.message);
                 // Redirect to login after 3 seconds
                 setTimeout(() => {
                     router.push('/auth/login');
                 }, 3000);
             }
         } catch {
-            setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+            toast.error('An error occurred. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -60,11 +61,10 @@ function ResetPasswordForm() {
 
     const handleResendCode = async () => {
         if (!email) {
-            setError('Vui lòng nhập email');
+            toast.error('Please enter your email');
             return;
         }
 
-        setError('');
         setIsLoading(true);
 
         try {
@@ -79,13 +79,12 @@ function ResetPasswordForm() {
             const data = await response.json();
 
             if (!response.ok) {
-                setError(data.error || 'Đã xảy ra lỗi');
+                toast.error(data.error || 'An error occurred');
             } else {
-                setSuccess('Mã xác thực mới đã được gửi!');
-                setTimeout(() => setSuccess(''), 3000);
+                toast.success('A new verification code has been sent!');
             }
         } catch {
-            setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+            toast.error('An error occurred. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -95,22 +94,19 @@ function ResetPasswordForm() {
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
                 <Link href="/" className={styles.backHome}>
-                    ← Quay về trang chủ
+                    Back to home
                 </Link>
                 
                 <div className={styles.authLogo}>
                     <span className={styles.authLogoIcon}>◐</span>
                 </div>
                 
-                <h1 className={styles.authTitle}>Đặt lại mật khẩu</h1>
+                <h1 className={styles.authTitle}>Reset password</h1>
                 <p className={styles.authSubtitle}>
-                    Nhập mã xác thực và mật khẩu mới
+                    Enter your verification code and new password
                 </p>
 
                 <form onSubmit={handleSubmit} className={styles.form}>
-                    {error && <div className={styles.error}>{error}</div>}
-                    {success && <div className={styles.success}>{success}</div>}
-
                     <div className={styles.inputGroup}>
                         <label htmlFor="email" className={styles.label}>
                             Email
@@ -121,15 +117,15 @@ function ResetPasswordForm() {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className={styles.input}
-                            placeholder="Nhập email của bạn"
+                            placeholder="Enter your email"
                             required
-                            disabled={isLoading || !!success}
+                            disabled={isLoading || isCompleted}
                         />
                     </div>
 
                     <div className={styles.inputGroup}>
                         <label htmlFor="code" className={styles.label}>
-                            Mã xác thực (6 số)
+                            Verification code (6 digits)
                         </label>
                         <input
                             id="code"
@@ -140,13 +136,13 @@ function ResetPasswordForm() {
                             placeholder="000000"
                             required
                             maxLength={6}
-                            disabled={isLoading || !!success}
+                            disabled={isLoading || isCompleted}
                         />
                     </div>
 
                     <div className={styles.inputGroup}>
                         <label htmlFor="password" className={styles.label}>
-                            Mật khẩu mới
+                            New password
                         </label>
                         <input
                             id="password"
@@ -154,16 +150,16 @@ function ResetPasswordForm() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className={styles.input}
-                            placeholder="Ít nhất 8 ký tự"
+                            placeholder="At least 8 characters"
                             required
                             minLength={8}
-                            disabled={isLoading || !!success}
+                            disabled={isLoading || isCompleted}
                         />
                     </div>
 
                     <div className={styles.inputGroup}>
                         <label htmlFor="confirmPassword" className={styles.label}>
-                            Xác nhận mật khẩu mới
+                            Confirm new password
                         </label>
                         <input
                             id="confirmPassword"
@@ -171,9 +167,9 @@ function ResetPasswordForm() {
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             className={styles.input}
-                            placeholder="Nhập lại mật khẩu"
+                            placeholder="Re-enter password"
                             required
-                            disabled={isLoading || !!success}
+                            disabled={isLoading || isCompleted}
                         />
                     </div>
 
@@ -182,23 +178,23 @@ function ResetPasswordForm() {
                             type="button"
                             className={styles.backButton}
                             onClick={handleResendCode}
-                            disabled={isLoading || !!success}
+                            disabled={isLoading || isCompleted}
                         >
-                            Gửi lại mã
+                            Resend code
                         </button>
                         <button
                             type="submit"
                             className={styles.submitButton}
-                            disabled={isLoading || !!success}
+                            disabled={isLoading || isCompleted}
                         >
-                            {isLoading ? 'Đang xử lý...' : 'Đặt lại mật khẩu'}
+                            {isLoading ? 'Processing...' : 'Reset password'}
                         </button>
                     </div>
                 </form>
 
                 <p className={styles.linkText}>
                     <Link href="/auth/login" className={styles.link}>
-                        Quay lại đăng nhập
+                        Back to sign in
                     </Link>
                 </p>
             </div>

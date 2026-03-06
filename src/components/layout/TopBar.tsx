@@ -76,7 +76,7 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                         onClick={toggleVolumePanel}
                         aria-expanded={volumeOpen}
                         aria-controls={`${sliderId}-panel`}
-                        title="Điều chỉnh âm lượng"
+                        title="Adjust volume"
                     >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
@@ -89,7 +89,7 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                         className={`${styles.volumePanel} ${volumeOpen ? styles.open : ''}`}
                         aria-hidden={!volumeOpen}
                     >
-                        <div className={styles.volumeHeader}>Âm lượng</div>
+                        <div className={styles.volumeHeader}>Volume</div>
                         <div className={styles.volumeControls}>
                             <input
                                 id={sliderId}
@@ -100,7 +100,7 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                                 value={soundVolume}
                                 onChange={handleVolumeChange}
                                 className={styles.volumeSlider}
-                                aria-label="Điều chỉnh âm lượng"
+                                aria-label="Adjust volume"
                             />
                             <span className={styles.volumeValue}>{Math.round(soundVolume * 100)}%</span>
                         </div>

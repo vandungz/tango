@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import styles from './page.module.css';
 import { getSessionId } from '@/lib/storage';
+import { useToast } from '@/components/feedback/ToastProvider';
 
 type Mode = 'daily';
 type Difficulty = 'Easy' | 'Medium' | 'Hard' | 'Very Hard';
@@ -48,6 +49,7 @@ function formatDuration(seconds: number): string {
 }
 
 export default function LeaderboardPage() {
+    const toast = useToast();
     const [size, setSize] = useState<number | null>(null);
     const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
     const [data, setData] = useState<LeaderboardResponse | null>(null);
@@ -94,7 +96,9 @@ export default function LeaderboardPage() {
                 }
             } catch (err) {
                 if (cancelled) return;
-                setError(err instanceof Error ? err.message : 'Failed to load leaderboard');
+                const message = err instanceof Error ? err.message : 'Failed to load leaderboard';
+                setError(message);
+                toast.error(message);
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -105,7 +109,7 @@ export default function LeaderboardPage() {
         return () => {
             cancelled = true;
         };
-    }, [size, difficulty]);
+    }, [size, difficulty, toast]);
 
     const viewerOutsideTop = useMemo(() => {
         if (!data?.viewer) return null;
@@ -140,9 +144,9 @@ export default function LeaderboardPage() {
             <main className={styles.page}>
                 <section className={styles.panel}>
                     <h1 className={styles.title}>Leaderboard</h1>
-                    <p className={styles.subtitle}>{error || 'Could not load leaderboard.'}</p>
+                    <p className={styles.subtitle}>Could not load leaderboard.</p>
                     <Link href="/" className={styles.backLink}>
-                        ← Back to home
+                        Back to home
                     </Link>
                 </section>
             </main>

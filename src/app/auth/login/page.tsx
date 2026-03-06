@@ -5,20 +5,20 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import styles from '../auth.module.css';
+import { useToast } from '@/components/feedback/ToastProvider';
 
 function LoginForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const callbackUrl = searchParams.get('callbackUrl') || '/';
+    const toast = useToast();
     
     const [login, setLogin] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
         setIsLoading(true);
 
         try {
@@ -29,13 +29,13 @@ function LoginForm() {
             });
 
             if (result?.error) {
-                setError('Tên đăng nhập/email hoặc mật khẩu không đúng');
+                toast.error('Incorrect username/email or password');
             } else {
                 router.push(callbackUrl);
                 router.refresh();
             }
         } catch {
-            setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+            toast.error('An error occurred. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -45,22 +45,20 @@ function LoginForm() {
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
                 <Link href="/" className={styles.backHome}>
-                    ← Quay về trang chủ
+                    Back to home
                 </Link>
                 
                 <div className={styles.authLogo}>
                     <span className={styles.authLogoIcon}>◐</span>
                 </div>
                 
-                <h1 className={styles.authTitle}>Đăng nhập</h1>
-                <p className={styles.authSubtitle}>Chào mừng trở lại!</p>
+                <h1 className={styles.authTitle}>Sign in</h1>
+                <p className={styles.authSubtitle}>Welcome back!</p>
 
                 <form onSubmit={handleSubmit} className={styles.form}>
-                    {error && <div className={styles.error}>{error}</div>}
-
                     <div className={styles.inputGroup}>
                         <label htmlFor="login" className={styles.label}>
-                            Email hoặc tên đăng nhập
+                            Email or username
                         </label>
                         <input
                             id="login"
@@ -68,7 +66,7 @@ function LoginForm() {
                             value={login}
                             onChange={(e) => setLogin(e.target.value)}
                             className={styles.input}
-                            placeholder="Nhập email hoặc tên đăng nhập"
+                            placeholder="Enter email or username"
                             required
                             disabled={isLoading}
                         />
@@ -76,7 +74,7 @@ function LoginForm() {
 
                     <div className={styles.inputGroup}>
                         <label htmlFor="password" className={styles.label}>
-                            Mật khẩu
+                            Password
                         </label>
                         <input
                             id="password"
@@ -84,7 +82,7 @@ function LoginForm() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className={styles.input}
-                            placeholder="Nhập mật khẩu"
+                            placeholder="Enter password"
                             required
                             disabled={isLoading}
                         />
@@ -92,7 +90,7 @@ function LoginForm() {
 
                     <div className={styles.forgotLink}>
                         <Link href="/auth/forgot-password" className={styles.link}>
-                            Quên mật khẩu?
+                            Forgot password?
                         </Link>
                     </div>
 
@@ -101,14 +99,14 @@ function LoginForm() {
                         className={styles.submitButton}
                         disabled={isLoading}
                     >
-                        {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                        {isLoading ? 'Signing in...' : 'Sign in'}
                     </button>
                 </form>
 
                 <p className={styles.linkText}>
-                    Chưa có tài khoản?{' '}
+                    Don&apos;t have an account?{' '}
                     <Link href="/auth/register" className={styles.link}>
-                        Đăng ký ngay
+                        Sign up now
                     </Link>
                 </p>
             </div>

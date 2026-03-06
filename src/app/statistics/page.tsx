@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import styles from './page.module.css';
+import { useToast } from '@/components/feedback/ToastProvider';
 
 type Difficulty = 'Easy' | 'Medium' | 'Hard' | 'Very Hard';
 
@@ -36,6 +37,7 @@ function formatDuration(seconds: number | null): string {
 export default function StatisticsPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
+    const toast = useToast();
 
     const [stats, setStats] = useState<StatisticsResponse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -75,7 +77,9 @@ export default function StatisticsPage() {
                 if (preferred) setSelectedSize(preferred);
             } catch (err) {
                 if (cancelled) return;
-                setError(err instanceof Error ? err.message : 'Failed to load statistics');
+                const message = err instanceof Error ? err.message : 'Failed to load statistics';
+                setError(message);
+                toast.error(message);
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -86,7 +90,7 @@ export default function StatisticsPage() {
         return () => {
             cancelled = true;
         };
-    }, [status]);
+    }, [status, toast]);
 
     const selectedBucket = useMemo(() => {
         if (!stats) return null;
@@ -110,9 +114,9 @@ export default function StatisticsPage() {
             <main className={styles.page}>
                 <section className={styles.panel}>
                     <h1 className={styles.title}>Statistics</h1>
-                    <p className={styles.subtitle}>{error || 'Could not load your statistics.'}</p>
+                    <p className={styles.subtitle}>Could not load your statistics.</p>
                     <Link href="/" className={styles.backLink}>
-                        ← Back to home
+                        Back to home
                     </Link>
                 </section>
             </main>

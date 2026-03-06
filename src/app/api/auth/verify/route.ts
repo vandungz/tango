@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
         if (!token) {
             return NextResponse.json(
-                { error: 'Token không hợp lệ' },
+                { error: 'Invalid token' },
                 { status: 400 }
             );
         }
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
         if (!result) {
             return NextResponse.json(
-                { error: 'Token không hợp lệ hoặc đã hết hạn' },
+                { error: 'Token is invalid or has expired' },
                 { status: 400 }
             );
         }
@@ -30,13 +30,13 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json(
-            { message: 'Email đã được xác thực thành công!' },
+            { message: 'Email has been verified successfully!' },
             { status: 200 }
         );
     } catch (error) {
         console.error('Verification error:', error);
         return NextResponse.json(
-            { error: 'Đã xảy ra lỗi khi xác thực email' },
+            { error: 'An error occurred while verifying email' },
             { status: 500 }
         );
     }

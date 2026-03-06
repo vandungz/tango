@@ -102,7 +102,7 @@ export async function sendVerificationEmail(
 
     await sendEmail({
         to: email,
-        subject: 'Mã xác thực đăng ký - Tango Game',
+        subject: 'Registration verification code - Tango Game',
         html: `
 <!DOCTYPE html>
 <html>
@@ -115,14 +115,14 @@ export async function sendVerificationEmail(
         <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:14px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
             <span style="font-size:28px;">🎯</span>
         </div>
-        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Xác thực tài khoản</h1>
-        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Chào mừng bạn đến với Tango Game!</p>
+        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Verify your account</h1>
+        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Welcome to Tango Game!</p>
     </div>
 
     <!-- Body -->
     <div style="padding:32px;">
         <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 8px;">
-            Cảm ơn bạn đã đăng ký! Vui lòng nhập mã xác thực bên dưới để hoàn tất đăng ký:
+            Thanks for signing up! Please enter the verification code below to complete your registration:
         </p>
         
         <!-- Code Box -->
@@ -135,15 +135,15 @@ export async function sendVerificationEmail(
         <!-- Timer -->
         <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
             <p style="margin:0;color:#92400e;font-size:13px;">
-                ⏰ Mã này sẽ hết hạn sau <strong>24 giờ</strong>
+                ⏰ This code will expire in <strong>24 hours</strong>
             </p>
         </div>
 
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
 
         <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;text-align:center;">
-            Nếu bạn không yêu cầu đăng ký tài khoản, vui lòng bỏ qua email này.<br>
-            Email được gửi tự động, vui lòng không trả lời.
+            If you did not request this registration, please ignore this email.<br>
+            This email was sent automatically. Please do not reply.
         </p>
     </div>
 
@@ -172,7 +172,7 @@ export async function sendPasswordResetEmail(
 
     await sendEmail({
         to: email,
-        subject: 'Đặt lại mật khẩu - Tango Game',
+        subject: 'Password reset - Tango Game',
         html: `
 <!DOCTYPE html>
 <html>
@@ -185,14 +185,14 @@ export async function sendPasswordResetEmail(
         <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:14px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
             <span style="font-size:28px;">🔐</span>
         </div>
-        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Đặt lại mật khẩu</h1>
-        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Yêu cầu khôi phục mật khẩu</p>
+        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Reset password</h1>
+        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Password recovery request</p>
     </div>
 
     <!-- Body -->
     <div style="padding:32px;">
         <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 8px;">
-            Bạn đã yêu cầu đặt lại mật khẩu. Nhập mã xác thực bên dưới để tiếp tục:
+            You requested a password reset. Enter the verification code below to continue:
         </p>
         
         <!-- Code Box -->
@@ -205,21 +205,21 @@ export async function sendPasswordResetEmail(
         <!-- Timer -->
         <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
             <p style="margin:0;color:#92400e;font-size:13px;">
-                ⏰ Mã này sẽ hết hạn sau <strong>1 giờ</strong>
+                ⏰ This code will expire in <strong>1 hour</strong>
             </p>
         </div>
 
         <!-- Security note -->
         <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
             <p style="margin:0;color:#991b1b;font-size:13px;">
-                🛡️ Nếu bạn <strong>không yêu cầu</strong> đặt lại mật khẩu, ai đó có thể đang cố truy cập tài khoản của bạn. Vui lòng bỏ qua email này.
+                🛡️ If you did <strong>not request</strong> a password reset, someone may be trying to access your account. Please ignore this email.
             </p>
         </div>
 
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
 
         <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;text-align:center;">
-            Email được gửi tự động, vui lòng không trả lời.
+            This email was sent automatically. Please do not reply.
         </p>
     </div>
 

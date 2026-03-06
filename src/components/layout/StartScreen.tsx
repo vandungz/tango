@@ -123,7 +123,7 @@ export default function StartScreen({ onDaily, onJourney, journeyNextLevel, jour
                                     <circle cx="12" cy="8" r="4" />
                                     <path d="M4 20c1.3-3 4.2-5 8-5s6.7 2 8 5" />
                                 </svg>
-                                Hồ sơ
+                                Profile
                             </button>
                             <button className={styles.profileMenuItem} onClick={handleLogout}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -131,7 +131,7 @@ export default function StartScreen({ onDaily, onJourney, journeyNextLevel, jour
                                     <polyline points="16 17 21 12 16 7" />
                                     <line x1="21" y1="12" x2="9" y2="12" />
                                 </svg>
-                                Đăng xuất
+                                Sign out
                             </button>
                         </div>
                     )}

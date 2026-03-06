@@ -1,24 +1,24 @@
 # Tango Puzzle Algorithm & Design Spec
 
-> Nguồn tổng hợp từ 4 tài liệu bạn cung cấp (Feb 2026), dùng làm chuẩn hiểu game và chuẩn triển khai generator/solver trong dự án.
+> Consolidated from 4 source documents you provided (Feb 2026), used as the reference for understanding the game and implementing the generator/solver in this project.
 
-## 1) Mục tiêu thiết kế
+## 1) Design goals
 
-Tango là puzzle nhị phân (Sun/Moon) với yêu cầu:
-- Mỗi puzzle có **nghiệm duy nhất**.
-- Có thể giải bằng **logic thuần túy** (không bắt buộc đoán mò).
-- Độ khó phản ánh **loại quy tắc suy luận** cần dùng, không chỉ phụ thuộc kích thước board.
+Tango is a binary puzzle (Sun/Moon) with these requirements:
+- Each puzzle has a **unique solution**.
+- It can be solved with **pure logic** (no blind guessing required).
+- Difficulty reflects the **type of reasoning rules** required, not only board size.
 
-## 2) Luật chơi cốt lõi
+## 2) Core game rules
 
-Mọi kích thước board (4×4, 6×6, 8×8, 10×10) đều dùng 4 luật:
+All board sizes (4×4, 6×6, 8×8, 10×10) use the same 4 rules:
 
-1. **Balance rule**: mỗi hàng/cột có đúng một nửa Sun và một nửa Moon.
-2. **No triple rule**: không có 3 ký hiệu giống nhau liên tiếp theo hàng/cột.
-3. **`=` clue**: hai ô kề nhau phải **giống nhau**.
-4. **`×` clue**: hai ô kề nhau phải **khác nhau**.
+1. **Balance rule**: each row/column contains exactly half Sun and half Moon.
+2. **No triple rule**: no 3 identical symbols in a row/column consecutively.
+3. **`=` clue**: two adjacent cells must be **the same**.
+4. **`×` clue**: two adjacent cells must be **different**.
 
-## 3) Số liệu theo kích thước board
+## 3) Board-size metrics
 
 | Size | Cells | Symbols per line | Base row patterns | Typical solve time |
 |---|---:|---:|---:|---|
@@ -27,145 +27,145 @@ Mọi kích thước board (4×4, 6×6, 8×8, 10×10) đều dùng 4 luật:
 | 8×8 | 64 | 4 + 4 | 12 | 4–10 min |
 | 10×10 | 100 | 5 + 5 | 25 | 8–20 min |
 
-**Base row patterns** = số mẫu hàng hợp lệ “gốc” trước khi tính đối xứng gương (reflection) và đảo màu (inversion).
+**Base row patterns** = the number of valid “base” row patterns before reflection and color inversion symmetry are counted.
 
-## 4) Taxonomy quy tắc suy luận (solver rules)
+## 4) Solver rule taxonomy
 
-Thứ tự từ dễ đến khó (kèm trọng số difficulty theo tài liệu):
+Order from easiest to hardest (with reference difficulty weights):
 
 1. **Clue Propagation** (1)
-   - Một phía của `=` hoặc `×` đã biết thì phía còn lại suy ra ngay.
+   - If one side of `=` or `×` is known, the other side is immediately deduced.
 
 2. **Almost Full** (1)
-   - Hàng/cột đã đủ quota một biểu tượng thì ô trống còn lại là biểu tượng đối lập.
+   - If a row/column already reached quota for one symbol, all remaining blanks are the opposite symbol.
 
 3. **Triple Prevention** (1)
-   - Mẫu `A A _` hoặc `_ A A` buộc ô trống là `not A`.
+   - Pattern `A A _` or `_ A A` forces the blank to `not A`.
 
 4. **Gap Fill / Sandwich** (2)
-   - Mẫu `A _ A` buộc ô giữa là `not A`.
+   - Pattern `A _ A` forces the middle cell to `not A`.
 
 5. **Touching Pair** (4)
-   - Cặp `= ` còn trống (`? = ?`) nhưng có ô điền ngay cạnh đầu/cạnh cuối cặp thì cả cặp bị ép theo luật chống triple.
+   - For an unfilled `=` pair (`? = ?`), if an adjacent external cell is filled, the pair can be forced by anti-triple constraints.
 
 6. **Edge Pair / Big Gap** (6)
-   - Quy tắc biên mạnh ở board nhỏ-vừa (đặc biệt 6×6, mở rộng biến thể cho 8×8).
+   - Strong edge rule on small/medium boards (especially 6×6, with expanded variants for 8×8).
 
 7. **Equal-Gap** (7)
-   - Mẫu `? = ?` ở mép + thông tin đầu kia của line có thể ép cặp `=` (đặc biệt hữu dụng ở 6×6).
+   - Edge pattern `? = ?` plus information at the far end of the line can force the `=` pair (especially useful on 6×6).
 
 8. **Opposite Inference** (9)
-   - Với cặp `×` chưa điền + line gần full, quota còn lại ép các ô khác.
+   - For unfilled `×` pairs in near-full lines, remaining quotas can force other cells.
 
 9. **Inverse Big Gap** (9)
-   - Biến thể edge pattern hiếm hơn.
+   - A rarer edge-pattern variant.
 
 10. **Constraint Enumeration** (10)
-   - Liệt kê tổ hợp hợp lệ cho nhóm clue chồng chéo; ô nào bất biến qua mọi tổ hợp hợp lệ thì được xác định.
+   - Enumerate valid combinations for overlapping clue groups; cells that are invariant across all valid combinations are fixed.
 
-## 5) Chiến lược giải thực chiến (player-facing)
+## 5) Practical solving strategy (player-facing)
 
-Từ 3 tài liệu chiến lược:
-- Luôn quét clue `=` và `×` trước.
-- Count trước khi đặt.
-- Tìm adjacent pair, sandwich (`A _ A`).
-- Ưu tiên chain clue (nhiều clue liền nhau).
-- Luân phiên scan theo row và column.
-- Khi bí, dùng contradiction (`what-if`) có kiểm chứng.
-- Ưu tiên line dễ (ít ô trống nhất) và lặp nhiều pass.
+From the 3 strategy documents:
+- Always scan `=` and `×` clues first.
+- Count before placing.
+- Find adjacent pairs and sandwich patterns (`A _ A`).
+- Prioritize clue chains (many connected clues).
+- Alternate row and column scans.
+- When stuck, use validated contradiction (`what-if`).
+- Prioritize easiest lines (fewest blanks), then iterate multiple passes.
 
-## 6) Bản đồ kỹ thuật theo kích thước
+## 6) Technical map by board size
 
 ### 4×4 (warm-up)
-- Space nghiệm nhỏ, cascade nhanh.
-- Chủ yếu: clue propagation + count.
-- Hiếm khi cần rule nâng cao.
+- Small solution space, fast cascades.
+- Mainly clue propagation + counting.
+- Advanced rules are rarely needed.
 
 ### 6×6 (sweet spot)
-- Kích thước tiêu chuẩn, chuỗi suy luận rõ.
-- Triple + Gap/Sandwich là bắt buộc ở mức medium.
-- Edge pattern và Equal-Gap thường xuất hiện ở hard.
+- Standard size with clear reasoning chains.
+- Triple + Gap/Sandwich are required at medium level.
+- Edge pattern and Equal-Gap often appear at hard level.
 
 ### 8×8 (challenge)
-- Độ mơ hồ tăng mạnh (12 base patterns).
-- Rule count “kích hoạt muộn” hơn so với 6×6.
-- Cần chain clue + nhận diện pattern biên (BigGap 8×8) + opposite inference.
+- Ambiguity increases significantly (12 base patterns).
+- Counting rules trigger later than in 6×6.
+- Requires clue chains + edge pattern recognition (8×8 Big Gap) + opposite inference.
 
 ### 10×10 (expert)
-- Quy tắc biên kiểu nhỏ không còn ép mạnh như 6×6.
-- Nặng về scan có hệ thống, chain clue, count nhiều vòng.
-- Có thể cần constraint enumeration ở very hard.
+- Small-board edge rules are less forcing than in 6×6.
+- Emphasizes systematic scanning, clue chains, and multi-pass counting.
+- Constraint enumeration may be needed at very hard level.
 
-## 7) Pipeline sinh puzzle chuẩn (4 bước)
+## 7) Standard puzzle generation pipeline (4 steps)
 
-## Step 1 — Build Complete Solution
+## Step 1 — Build complete solution
 
-Sinh board đã giải hoàn chỉnh trước:
-1. Lấy tập valid row pattern cho size:
-   - Đủ balance.
-   - Không có triple.
-2. Dùng base patterns + biến thể (reflection + inversion).
-3. Đặt từng row theo backtracking:
-   - Không overflow count theo cột.
-   - Không tạo triple ở cột.
-   - Không trùng row/col hoàn chỉnh (nếu game yêu cầu uniqueness line).
-4. Kết quả là **answer key**.
+Generate a fully solved board first:
+1. Build valid row pattern set for the size:
+   - Balanced symbols.
+   - No triples.
+2. Use base patterns + variants (reflection + inversion).
+3. Place rows with backtracking:
+   - No column count overflow.
+   - No column triples.
+   - No duplicate completed row/column (if line uniqueness is required by the game).
+4. Output the **answer key**.
 
-## Step 2 — Place `=` / `×` Clues
+## Step 2 — Place `=` / `×` clues
 
-- Lấy các cặp ô kề nhau (h/v).
-- Chọn ngẫu nhiên theo mật độ clue mong muốn theo size.
-- Nếu 2 ô trong solution giống nhau -> `=`; khác nhau -> `×`.
-- Clue luôn trung thực vì dựa trên solution đã biết.
+- Collect adjacent cell pairs (horizontal/vertical).
+- Randomly select by target clue density per size.
+- If two solution cells are equal -> `=`; otherwise -> `×`.
+- Clues are always truthful because they are derived from the known solution.
 
 ## Step 3 — Unsolve (remove cells)
 
-Mục tiêu: blank tối đa nhưng vẫn logic-solvable + unique.
+Goal: maximize blanks while preserving logic solvability + uniqueness.
 
-Quy trình:
-1. Chọn một ô đã điền.
-2. Tạm xóa.
-3. Chạy solver rule-based + kiểm tra unique solution.
-4. Nếu vẫn suy ra đúng solution duy nhất -> giữ ô trống.
-5. Nếu không -> phục hồi ô.
-6. Lặp đến khi không xóa thêm được.
+Process:
+1. Pick a filled cell.
+2. Temporarily remove it.
+3. Run rule-based solver + unique-solution check.
+4. If still deducible to the same unique solution -> keep blank.
+5. Otherwise -> restore the cell.
+6. Repeat until no further removals are possible.
 
-## Step 4 — Score Difficulty
+## Step 4 — Score difficulty
 
-- Chạy solver lần cuối từ trạng thái puzzle.
-- Ghi lại:
-  - danh sách bước,
-  - rule đã dùng,
-  - max difficulty rule,
-  - tổng điểm difficulty.
-- Gán nhãn:
-  - Easy: chỉ rule cơ bản.
-  - Medium: cần rule trung cấp (triple/gap/touching/chains).
-  - Hard: cần edge/equal-gap/opposite.
-  - Very Hard: có constraint enumeration.
+- Run solver one final time from puzzle state.
+- Record:
+  - step list,
+  - rules used,
+  - max rule difficulty,
+  - total difficulty score.
+- Assign label:
+  - Easy: only basic rules.
+  - Medium: requires intermediate rules (triple/gap/touching/chains).
+  - Hard: requires edge/equal-gap/opposite.
+  - Very Hard: includes constraint enumeration.
 
-## 8) Tính công bằng của puzzle
+## 8) Puzzle fairness
 
-Puzzle được coi là “fair” khi đồng thời thỏa:
-- Có nghiệm.
-- Nghiệm duy nhất.
-- Có thể đi từ state ban đầu tới nghiệm bằng tập rule logic được engine công bố.
+A puzzle is considered “fair” only if all are true:
+- It has a solution.
+- The solution is unique.
+- It can be solved from initial state using the published engine logic rules.
 
-Không cần đoán mù; nếu dùng contradiction thì đó là kỹ thuật logic có kiểm chứng.
+No blind guessing is required; if contradiction is used, it must be a validated logical technique.
 
-## 9) Đề xuất dữ liệu cần lưu cho mỗi puzzle
+## 9) Recommended metadata per puzzle
 
-Metadata nên lưu để audit/chấm difficulty tốt hơn:
+Store metadata to improve auditability and difficulty scoring:
 - `size`, `hash`, `board`, `solution`, `clues`
-- `difficulty` (tổng điểm)
-- `maxRuleDifficulty` (độ sâu rule cao nhất)
-- `rulesUsed` (JSON mảng rule)
+- `difficulty` (total score)
+- `maxRuleDifficulty` (highest rule depth)
+- `rulesUsed` (JSON rule array)
 - `clueCount`, `givensCount`
 - `baseRowPatternCount`
 - `generationVersion`, `solverVersion`
 - `label`
 
-## 10) Pseudocode tham chiếu
+## 10) Reference pseudocode
 
 ```text
 function generatePuzzle(size):
@@ -192,88 +192,88 @@ function generatePuzzle(size):
   }
 ```
 
-## 11) Hướng dẫn dùng spec này trong dự án
+## 11) How to use this spec in the project
 
-- Dùng tài liệu này làm chuẩn review khi sửa `generator`, `clue-placer`, `unsolver`, `solver`.
-- Bất kỳ rule mới nào phải được:
-  1) mô tả rõ pattern,
-  2) gán difficulty,
-  3) test với ví dụ dương/âm,
-  4) cập nhật difficulty mapping.
-- Khi tuning độ khó, ưu tiên chỉnh:
-  - mật độ clue theo size,
-  - chiến lược unsolve,
-  - ngưỡng gán nhãn theo `maxRuleDifficulty` + tổng điểm.
+- Use this document as the review baseline when modifying `generator`, `clue-placer`, `unsolver`, and `solver`.
+- Any new rule must:
+  1) clearly describe its pattern,
+  2) define difficulty,
+  3) include positive/negative test examples,
+  4) update difficulty mapping.
+- When tuning difficulty, prioritize adjustments to:
+  - clue density per size,
+  - unsolve strategy,
+  - label thresholds using `maxRuleDifficulty` + total score.
 
-## 12) Tiêu chuẩn mode: Daily và Journey
+## 12) Mode standards: Daily and Journey
 
-### 12.1 Daily mode (một puzzle mỗi ngày)
+### 12.1 Daily mode (one puzzle per day)
 
-Mục tiêu sản phẩm:
-- Tạo trải nghiệm quay lại hằng ngày, có streak và so sánh thời gian.
-- Cùng ngày + cùng biến thể phải trả về cùng puzzle cho mọi người chơi.
+Product goals:
+- Create daily return loops, with streak and time comparison.
+- Same day + same variant must return the same puzzle for all players.
 
-Tiêu chuẩn kỹ thuật:
-- Key định danh puzzle theo ngày: `(date UTC, size, proMode)`.
-- `date` phải chuẩn hóa về **startOfDay UTC** để tránh lệch múi giờ.
-- Mỗi key Daily chỉ trỏ tới đúng một `puzzleId`.
-- Puzzle Daily vẫn phải thỏa chuẩn fairness chung: solved-by-logic + unique solution.
+Technical standards:
+- Daily puzzle identity key: `(date UTC, size, proMode)`.
+- `date` must be normalized to **startOfDay UTC** to avoid timezone drift.
+- Each Daily key maps to exactly one `puzzleId`.
+- Daily puzzles must satisfy global fairness standards: logic-solvable + unique solution.
 
-Tiêu chuẩn gameplay:
-- Hỗ trợ đủ 4 size: `4, 6, 8, 10`.
-- `proMode` là biến thể cùng ngày, ưu tiên puzzle có difficulty cao hơn trong số nhiều lần generate nội bộ.
-- Kết quả hoàn thành lưu theo identity (`userId` hoặc `sessionId`):
-   - thời gian hoàn thành,
-   - stars,
-   - completedAt.
+Gameplay standards:
+- Support all 4 sizes: `4, 6, 8, 10`.
+- `proMode` is the same-day variant, preferring higher difficulty among multiple internal generation attempts.
+- Completion is stored by identity (`userId` or `sessionId`):
+  - completion time,
+  - stars,
+  - completedAt.
 
-Tiêu chuẩn progression:
-- Streak tính theo ngày UTC liên tiếp.
-- `currentStreak`: số ngày liên tiếp tính lùi từ hôm nay.
-- `bestStreak`: streak dài nhất lịch sử.
-- Trường hợp người chơi làm nhiều size trong cùng ngày:
-   - lưu tiến độ theo từng biến thể,
-   - khi hiển thị tổng quan dùng kết quả tốt nhất theo tiêu chí stars cao hơn, nếu bằng thì thời gian thấp hơn.
+Progression standards:
+- Streaks are calculated by consecutive UTC days.
+- `currentStreak`: number of consecutive days counting back from today.
+- `bestStreak`: longest streak in history.
+- If a player completes multiple sizes in one day:
+  - store progress per variant,
+  - when displaying summary, use the best result by higher stars, then lower time if tied.
 
-### 12.2 Journey mode (chuỗi level có độ khó tăng dần)
+### 12.2 Journey mode (progressive level sequence)
 
-Mục tiêu sản phẩm:
-- Tạo đường học logic từ dễ đến khó, giúp người chơi internalize từng rule.
-- Cung cấp lộ trình dài hạn thay vì vòng lặp theo ngày.
+Product goals:
+- Build a learning path from easy to hard so players internalize each rule.
+- Provide long-term progression beyond daily loops.
 
-Tiêu chuẩn nội dung:
-- Có tập level hữu hạn (theo tài liệu: >200 level curated).
-- Mỗi level gắn với một puzzle cố định (`level order -> puzzleId`).
-- Thứ tự level phải phản ánh learning curve:
-   1) rule cơ bản,
-   2) rule trung cấp,
-   3) edge/inference,
-   4) enumeration ở nhóm cuối.
+Content standards:
+- Finite level set (per docs: 200+ curated levels).
+- Each level maps to a fixed puzzle (`level order -> puzzleId`).
+- Level order must reflect learning curve:
+  1) basic rules,
+  2) intermediate rules,
+  3) edge/inference,
+  4) enumeration in final groups.
 
-Tiêu chuẩn triển khai:
-- Level có thể được tạo từ cùng generator pipeline, nhưng cần thêm bước **curation/validation** trước khi publish.
-- Không để hai level liên tiếp có profile suy luận quá giống nhau (đa dạng rule mix).
-- Nên lưu metadata để kiểm soát progression quality:
-   - `rulesUsed`, `maxRuleDifficulty`, `difficulty`, `size`, `clueCount`, `givensCount`.
+Implementation standards:
+- Levels can come from the same generator pipeline, but require **curation/validation** before publishing.
+- Avoid consecutive levels with overly similar reasoning profiles (rule-mix diversity).
+- Recommended metadata for progression quality control:
+  - `rulesUsed`, `maxRuleDifficulty`, `difficulty`, `size`, `clueCount`, `givensCount`.
 
-Tiêu chuẩn lưu tiến độ:
-- Mỗi identity có tối đa một kết quả tốt nhất cho mỗi level.
-- `bestTime = min(timeSeconds)` hợp lệ.
-- `bestStars = max(stars)` theo các lần clear.
-- `nextLevel` là level nhỏ nhất chưa hoàn thành.
+Progress storage standards:
+- One best result per identity per level.
+- `bestTime = min(timeSeconds)` (valid runs only).
+- `bestStars = max(stars)` across clears.
+- `nextLevel` is the smallest unfinished level index.
 
-### 12.3 Khác biệt chuẩn giữa Daily và Journey
+### 12.3 Standard differences: Daily vs Journey
 
-| Khía cạnh | Daily | Journey |
+| Aspect | Daily | Journey |
 |---|---|---|
-| Nguồn puzzle | Tạo theo ngày (deterministic theo key) | Danh sách level curated/fixed |
-| Mục tiêu | Retention ngắn hạn, streak | Học kỹ năng dài hạn, mastery |
-| Reset nội dung | Mỗi ngày | Không reset, tiến tuyến tính |
-| Tracking chính | streak, best daily time | stars/timing theo từng level |
-| Yêu cầu cân bằng | Công bằng theo ngày cho mọi người | Độ khó tăng dần, tránh nhảy bậc quá gắt |
+| Puzzle source | Generated by day (deterministic by key) | Curated/fixed level list |
+| Objective | Short-term retention, streak | Long-term skill development, mastery |
+| Content reset | Daily | No reset, linear progression |
+| Primary tracking | streak, best daily time | stars/timing per level |
+| Balancing requirement | Fairness parity for everyone each day | Increasing difficulty, avoid harsh difficulty spikes |
 
 ---
 
 **Version**: 1.1  
 **Updated**: 2026-03-06  
-**Scope**: Tổng hợp cách hiểu gameplay + generation/solver algorithm từ 4 tài liệu đã cung cấp.
+**Scope**: Consolidated gameplay understanding + generation/solver algorithm from 4 provided source documents.

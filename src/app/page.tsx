@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ThemeProvider } from '@/contexts/theme';
 import { GameProvider, useGame } from '@/contexts/game-state';
 import TopBar from '@/components/layout/TopBar';
 import GameHeader from '@/components/game/GameHeader';
@@ -14,11 +13,9 @@ import styles from './page.module.css';
 
 export default function Home() {
   return (
-    <ThemeProvider>
-      <GameProvider>
-        <HomeContent />
-      </GameProvider>
-    </ThemeProvider>
+    <GameProvider>
+      <HomeContent />
+    </GameProvider>
   );
 }
 

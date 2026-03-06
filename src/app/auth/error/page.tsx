@@ -1,62 +1,67 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import styles from '../auth.module.css';
+import { useToast } from '@/components/feedback/ToastProvider';
 
 const errorMessages: Record<string, string> = {
-    Configuration: 'Có lỗi cấu hình hệ thống.',
-    AccessDenied: 'Bạn không có quyền truy cập.',
-    Verification: 'Link xác thực không hợp lệ hoặc đã hết hạn.',
-    OAuthSignin: 'Không thể kết nối với dịch vụ đăng nhập.',
-    OAuthCallback: 'Có lỗi xảy ra khi xử lý đăng nhập.',
-    OAuthCreateAccount: 'Không thể tạo tài khoản.',
-    EmailCreateAccount: 'Không thể tạo tài khoản với email này.',
-    Callback: 'Có lỗi xảy ra khi xử lý yêu cầu.',
-    OAuthAccountNotLinked: 'Email này đã được liên kết với tài khoản khác.',
-    EmailSignin: 'Không thể gửi email đăng nhập.',
-    CredentialsSignin: 'Thông tin đăng nhập không chính xác.',
-    SessionRequired: 'Vui lòng đăng nhập để tiếp tục.',
-    Default: 'Có lỗi xảy ra. Vui lòng thử lại sau.',
+    Configuration: 'System configuration error.',
+    AccessDenied: 'You do not have permission to access this page.',
+    Verification: 'The verification link is invalid or has expired.',
+    OAuthSignin: 'Unable to connect to the sign-in service.',
+    OAuthCallback: 'An error occurred while processing sign-in.',
+    OAuthCreateAccount: 'Unable to create account.',
+    EmailCreateAccount: 'Unable to create an account with this email.',
+    Callback: 'An error occurred while processing the request.',
+    OAuthAccountNotLinked: 'This email is already linked to another account.',
+    EmailSignin: 'Unable to send sign-in email.',
+    CredentialsSignin: 'Incorrect login credentials.',
+    SessionRequired: 'Please sign in to continue.',
+    Default: 'Something went wrong. Please try again later.',
 };
 
 function ErrorContent() {
     const searchParams = useSearchParams();
+    const toast = useToast();
     const error = searchParams.get('error') || 'Default';
     const errorMessage = errorMessages[error] || errorMessages.Default;
+
+    useEffect(() => {
+        toast.error(errorMessage);
+    }, [errorMessage, toast]);
 
     return (
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
                 <Link href="/" className={styles.backHome}>
-                    ← Quay về trang chủ
+                    Back to home
                 </Link>
                 
                 <div className={styles.authLogo}>
                     <span className={styles.authLogoIcon}>◐</span>
                 </div>
                 
-                <h1 className={styles.authTitle}>Có lỗi xảy ra</h1>
+                <h1 className={styles.authTitle}>Something went wrong</h1>
                 
                 <div className={styles.verifyStatus}>
                     <div className={styles.errorIcon}>!</div>
-                    <div className={styles.error}>{errorMessage}</div>
                 </div>
 
                 <p className={styles.authSubtitle}>
-                    Nếu lỗi vẫn tiếp tục, vui lòng liên hệ hỗ trợ.
+                    {errorMessage}
                 </p>
 
                 <div className={styles.buttonGroup} style={{ marginTop: '1.5rem' }}>
                     <Link href="/auth/login" className={styles.submitButton} style={{ textAlign: 'center', textDecoration: 'none' }}>
-                        Đăng nhập
+                        Sign in
                     </Link>
                 </div>
 
                 <p className={styles.linkText}>
                     <Link href="/" className={styles.link}>
-                        Quay về trang chủ
+                        Back to home
                     </Link>
                 </p>
             </div>

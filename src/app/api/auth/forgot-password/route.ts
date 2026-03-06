@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
         if (!email) {
             return NextResponse.json(
-                { error: 'Vui lòng nhập email' },
+                { error: 'Please enter your email' },
                 { status: 400 }
             );
         }
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
         // Always return success to prevent email enumeration
         if (!user) {
             return NextResponse.json(
-                { message: 'Nếu email tồn tại, bạn sẽ nhận được mã xác thực.' },
+                { message: 'If the email exists, you will receive a verification code.' },
                 { status: 200 }
             );
         }
@@ -32,13 +32,13 @@ export async function POST(request: NextRequest) {
         await sendPasswordResetEmail(email.toLowerCase(), code);
 
         return NextResponse.json(
-            { message: 'Mã xác thực đã được gửi đến email của bạn.' },
+            { message: 'A verification code has been sent to your email.' },
             { status: 200 }
         );
     } catch (error) {
         console.error('Forgot password error:', error);
         return NextResponse.json(
-            { error: 'Đã xảy ra lỗi. Vui lòng thử lại sau.' },
+            { error: 'An error occurred. Please try again later.' },
             { status: 500 }
         );
     }

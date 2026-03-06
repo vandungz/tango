@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
         if (step === 'resend') {
             if (!email) {
                 return NextResponse.json(
-                    { error: 'Email không hợp lệ' },
+                    { error: 'Invalid email' },
                     { status: 400 }
                 );
             }
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
             if (existingUser) {
                 return NextResponse.json(
-                    { error: 'Email đã được đăng ký. Vui lòng đăng nhập.' },
+                    { error: 'This email is already registered. Please sign in.' },
                     { status: 409 }
                 );
             }
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
             if (!pendingToken || !pendingToken.metadata) {
                 return NextResponse.json(
-                    { error: 'Không tìm thấy đăng ký đang chờ xác thực. Vui lòng đăng ký lại.' },
+                    { error: 'No pending registration found for verification. Please sign up again.' },
                     { status: 404 }
                 );
             }
@@ -58,13 +58,13 @@ export async function POST(request: NextRequest) {
             } catch (emailError) {
                 console.error('Failed to resend verification email:', emailError);
                 return NextResponse.json(
-                    { error: 'Không thể gửi email xác thực. Vui lòng thử lại sau.' },
+                    { error: 'Unable to send verification email. Please try again later.' },
                     { status: 500 }
                 );
             }
 
             return NextResponse.json(
-                { message: 'Mã xác thực mới đã được gửi đến email của bạn!' },
+                { message: 'A new verification code has been sent to your email!' },
                 { status: 200 }
             );
         }
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         if (step === 'verify') {
             if (!email || !code) {
                 return NextResponse.json(
-                    { error: 'Vui lòng nhập mã xác thực' },
+                    { error: 'Please enter a verification code' },
                     { status: 400 }
                 );
             }
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
             if (existingUser) {
                 return NextResponse.json(
-                    { error: 'Email đã được đăng ký. Vui lòng đăng nhập.' },
+                    { error: 'This email is already registered. Please sign in.' },
                     { status: 409 }
                 );
             }
@@ -97,14 +97,14 @@ export async function POST(request: NextRequest) {
 
             if (!result || result.identifier !== normalizedVerifyEmail) {
                 return NextResponse.json(
-                    { error: 'Mã xác thực không hợp lệ hoặc đã hết hạn' },
+                    { error: 'Verification code is invalid or has expired' },
                     { status: 400 }
                 );
             }
 
             if (!result.metadata) {
                 return NextResponse.json(
-                    { error: 'Dữ liệu đăng ký không hợp lệ. Vui lòng đăng ký lại.' },
+                    { error: 'Invalid registration data. Please sign up again.' },
                     { status: 400 }
                 );
             }
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
 
             if (usernameTaken) {
                 return NextResponse.json(
-                    { error: 'Tên đăng nhập đã được sử dụng bởi người khác trong lúc chờ xác thực. Vui lòng đăng ký lại với tên khác.' },
+                    { error: 'This username was taken by another user while pending verification. Please sign up again with a different username.' },
                     { status: 409 }
                 );
             }
@@ -131,14 +131,21 @@ export async function POST(request: NextRequest) {
             await prisma.user.create({
                 data: {
                     username: pendingData.username,
+                    displayName: pendingData.username,
                     email: normalizedVerifyEmail,
                     password: pendingData.hashedPassword,
                     emailVerified: new Date(),
+                } as {
+                    username: string;
+                    displayName: string;
+                    email: string;
+                    password: string;
+                    emailVerified: Date;
                 },
             });
 
             return NextResponse.json(
-                { message: 'Đăng ký thành công!' },
+                { message: 'Registration successful!' },
                 { status: 200 }
             );
         }
@@ -146,28 +153,28 @@ export async function POST(request: NextRequest) {
         // ===== Step: Register — validate & send verification code (NO user creation) =====
         if (!username || !email || !password) {
             return NextResponse.json(
-                { error: 'Vui lòng điền đầy đủ thông tin' },
+                { error: 'Please fill in all required fields' },
                 { status: 400 }
             );
         }
 
         if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
             return NextResponse.json(
-                { error: 'Tên đăng nhập phải từ 3-20 ký tự, chỉ chứa chữ, số và dấu gạch dưới' },
+                { error: 'Username must be 3-20 characters and contain only letters, numbers, and underscores' },
                 { status: 400 }
             );
         }
 
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
             return NextResponse.json(
-                { error: 'Email không hợp lệ' },
+                { error: 'Invalid email' },
                 { status: 400 }
             );
         }
 
         if (password.length < 8) {
             return NextResponse.json(
-                { error: 'Mật khẩu phải có ít nhất 8 ký tự' },
+                { error: 'Password must be at least 8 characters long' },
                 { status: 400 }
             );
         }
@@ -181,7 +188,7 @@ export async function POST(request: NextRequest) {
 
         if (existingEmail) {
             return NextResponse.json(
-                { error: 'Email này đã được đăng ký. Vui lòng đăng nhập hoặc sử dụng chức năng quên mật khẩu.' },
+                { error: 'This email is already registered. Please sign in or use forgot password.' },
                 { status: 409 }
             );
         }
@@ -193,7 +200,7 @@ export async function POST(request: NextRequest) {
 
         if (existingUsername) {
             return NextResponse.json(
-                { error: 'Tên đăng nhập đã được sử dụng' },
+                { error: 'Username is already taken' },
                 { status: 409 }
             );
         }
@@ -214,14 +221,14 @@ export async function POST(request: NextRequest) {
         } catch (emailError) {
             console.error('Failed to send verification email:', emailError);
             return NextResponse.json(
-                { error: 'Không thể gửi email xác thực. Vui lòng thử lại sau.' },
+                { error: 'Unable to send verification email. Please try again later.' },
                 { status: 500 }
             );
         }
 
         return NextResponse.json(
             {
-                message: 'Mã xác thực đã được gửi đến email của bạn!',
+                message: 'A verification code has been sent to your email!',
                 requireVerification: true,
             },
             { status: 200 }
@@ -229,7 +236,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Registration error:', error);
         return NextResponse.json(
-            { error: 'Đã xảy ra lỗi khi đăng ký' },
+            { error: 'An error occurred during registration' },
             { status: 500 }
         );
     }
