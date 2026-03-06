@@ -24,9 +24,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify the code
-        const result = await verifyToken(code, 'password_reset');
+        const normalizedEmail = String(email).trim().toLowerCase();
+        const result = await verifyToken(code, 'password_reset', normalizedEmail);
 
-        if (!result || result.identifier !== email.toLowerCase()) {
+        if (!result || result.identifier !== normalizedEmail) {
             return NextResponse.json(
                 { error: 'Verification code is invalid or has expired' },
                 { status: 400 }
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
 
         // Update user's password
         await prisma.user.update({
-            where: { email: email.toLowerCase() },
+            where: { email: normalizedEmail },
             data: { password: hashedPassword },
         });
 

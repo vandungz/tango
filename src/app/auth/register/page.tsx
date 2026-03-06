@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from '../auth.module.css';
 import { useToast } from '@/components/feedback/ToastProvider';
+import DigitCodeInput from '@/components/auth/DigitCodeInput';
 
 type Step = 'register' | 'verify';
 
@@ -227,22 +228,15 @@ export default function RegisterPage() {
                                 <label htmlFor="verificationCode" className={styles.label}>
                                     Verification code
                                 </label>
-                                <input
+                                <DigitCodeInput
                                     id="verificationCode"
-                                    type="text"
                                     value={verificationCode}
-                                    onChange={(e) => {
-                                        setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                                    onChange={(nextCode) => {
+                                        setVerificationCode(nextCode);
                                         if (isVerified) setIsVerified(false);
                                     }}
-                                    className={styles.input}
-                                    placeholder="Enter 6-digit code"
-                                    required
-                                    maxLength={6}
-                                    pattern="\d{6}"
                                     disabled={isLoading}
                                     autoFocus
-                                    style={{ textAlign: 'center', letterSpacing: '0.5em', fontSize: '1.5rem' }}
                                 />
                             </div>
 

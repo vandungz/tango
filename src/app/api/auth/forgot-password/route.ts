@@ -5,7 +5,7 @@ import { generateVerificationToken, sendPasswordResetEmail } from '@/lib/auth/ve
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { email } = body;
+        const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
 
         if (!email) {
             return NextResponse.json(
@@ -16,20 +16,19 @@ export async function POST(request: NextRequest) {
 
         // Find user by email
         const user = await prisma.user.findUnique({
-            where: { email: email.toLowerCase() },
+            where: { email },
         });
 
-        // Always return success to prevent email enumeration
         if (!user) {
             return NextResponse.json(
-                { message: 'If the email exists, you will receive a verification code.' },
-                { status: 200 }
+                { error: 'An account registered with this email does not exist.' },
+                { status: 404 }
             );
         }
 
         // Generate verification code and send email
-        const code = await generateVerificationToken(email.toLowerCase(), 'password_reset');
-        await sendPasswordResetEmail(email.toLowerCase(), code);
+        const code = await generateVerificationToken(email, 'password_reset');
+        await sendPasswordResetEmail(email, code);
 
         return NextResponse.json(
             { message: 'A verification code has been sent to your email.' },

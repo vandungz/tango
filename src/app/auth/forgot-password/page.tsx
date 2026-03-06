@@ -18,6 +18,7 @@ export default function ForgotPasswordPage() {
         e.preventDefault();
         setIsSubmitted(false);
         setIsLoading(true);
+        const normalizedEmail = email.trim().toLowerCase();
 
         try {
             const response = await fetch('/api/auth/forgot-password', {
@@ -25,7 +26,7 @@ export default function ForgotPasswordPage() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({ email: normalizedEmail }),
             });
 
             const data = await response.json();
@@ -37,7 +38,7 @@ export default function ForgotPasswordPage() {
                 toast.success(data.message);
                 // Redirect to reset password page after 2 seconds
                 setTimeout(() => {
-                    router.push(`/auth/reset-password?email=${encodeURIComponent(email)}`);
+                    router.push(`/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}`);
                 }, 2000);
             }
         } catch {

@@ -226,6 +226,40 @@
     font-weight: 600;
 }
 
+.digitInputRow {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.digitInputCell {
+    width: 100%;
+    height: 3.25rem;
+    border-radius: 12px;
+    border: 1px solid #cfd8ff;
+    background: #f3f6ff;
+    color: #33407b;
+    text-align: center;
+    font-size: 1.875rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.digitInputCell:focus {
+    outline: none;
+    border-color: #5b6dcd;
+    background: #eef2ff;
+    box-shadow: 0 0 0 3px rgba(91, 109, 205, 0.16);
+}
+
+.digitInputCell:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 .backButton {
     background: transparent;
     border: 1px solid var(--border-color);
@@ -407,5 +441,16 @@
 @media (prefers-reduced-motion: reduce) {
     .toastSuccess {
         animation: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .digitInputRow {
+        gap: 0.4rem;
+    }
+
+    .digitInputCell {
+        height: 3rem;
+        font-size: 1.7rem;
     }
 }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import styles from '../auth.module.css';
 import { useToast } from '@/components/feedback/ToastProvider';
+import DigitCodeInput from '@/components/auth/DigitCodeInput';
 
 function ResetPasswordForm() {
     const router = useRouter();
@@ -23,6 +24,7 @@ function ResetPasswordForm() {
         e.preventDefault();
         setIsCompleted(false);
         setIsLoading(true);
+        const normalizedEmail = email.trim().toLowerCase();
 
         // Client-side validation
         if (password !== confirmPassword) {
@@ -37,7 +39,7 @@ function ResetPasswordForm() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email, code, password }),
+                body: JSON.stringify({ email: normalizedEmail, code, password }),
             });
 
             const data = await response.json();
@@ -60,7 +62,9 @@ function ResetPasswordForm() {
     };
 
     const handleResendCode = async () => {
-        if (!email) {
+        const normalizedEmail = email.trim().toLowerCase();
+
+        if (!normalizedEmail) {
             toast.error('Please enter your email');
             return;
         }
@@ -73,7 +77,7 @@ function ResetPasswordForm() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({ email: normalizedEmail }),
             });
 
             const data = await response.json();
@@ -127,15 +131,10 @@ function ResetPasswordForm() {
                         <label htmlFor="code" className={styles.label}>
                             Verification code (6 digits)
                         </label>
-                        <input
+                        <DigitCodeInput
                             id="code"
-                            type="text"
                             value={code}
-                            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                            className={`${styles.input} ${styles.codeInput}`}
-                            placeholder="000000"
-                            required
-                            maxLength={6}
+                            onChange={setCode}
                             disabled={isLoading || isCompleted}
                         />
                     </div>
@@ -185,7 +184,7 @@ function ResetPasswordForm() {
                         <button
                             type="submit"
                             className={styles.submitButton}
-                            disabled={isLoading || isCompleted}
+                            disabled={isLoading || isCompleted || code.length !== 6}
                         >
                             {isLoading ? 'Processing...' : 'Reset password'}
                         </button>

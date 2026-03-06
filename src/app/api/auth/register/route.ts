@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
             }
 
             // Verify the token — returns identifier + metadata
-            const result = await verifyToken(code, 'email_verification');
+            const result = await verifyToken(code, 'email_verification', normalizedVerifyEmail);
 
             if (!result || result.identifier !== normalizedVerifyEmail) {
                 return NextResponse.json(
