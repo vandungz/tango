@@ -1,63 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tango
 
-## Getting Started
+Tango is a Sun and Moon logic puzzle game built around pure deduction.
 
-First, run the development server:
+Every puzzle is designed to be solved by reasoning, not guessing.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## What Makes Tango Fun
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Clean binary logic: simple rules, deep strategy.
+- Fair puzzle design: one unique solution per level.
+- Multiple board sizes: from quick warm-ups to expert-level challenges.
+- Daily mode: shared puzzle experiences.
+- Journey mode: curated progression from beginner to advanced.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Core Puzzle Rules
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Each row and column must be balanced (half Sun, half Moon).
+- Three identical symbols cannot appear consecutively.
+- `=` clues mean two linked cells are the same.
+- `x` clues mean two linked cells are different.
 
-## Learn More
+## Why Players Come Back
 
-To learn more about Next.js, take a look at the following resources:
+Tango is designed for short, satisfying sessions and long-term mastery.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+You can play a fast daily challenge, track your progress, and improve your solving speed over time while learning stronger deduction patterns.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Learn the Game
 
-## Deploy on Vercel with Neon (Postgres)
+- In-app guide: `/how-to-play`
 
-1. Create a Neon project at https://neon.tech and grab the Postgres connection string (ensure `sslmode=require`).
-2. Set `DATABASE_URL` in Vercel Project Settings → Environment Variables to that string.
-3. Locally, add the same `DATABASE_URL` to your `.env` and run:
-	- `npm install`
-	- `npm run db:push` (creates tables on Neon)
-	- `npm run dev`
-4. Deploy on Vercel (build uses `prisma generate`; DB schema already pushed).
+## For Developers
 
-Notes:
-- Prisma schema now targets Postgres; no SQLite adapter needed.
-- If you change the Prisma schema, rerun `npm run db:push` to sync Neon.
+Technical setup, deployment, and admin operation details are documented here:
 
-## Journey set audit & rebuild
-
-Journey mode now uses a versioned active set (`JourneySet`) so you can safely evaluate and regenerate curated levels.
-
-1. Set an admin token in env:
-	- `JOURNEY_ADMIN_TOKEN=your-strong-token`
-2. Audit current active set:
-	- `GET /api/admin/journey` with header `x-admin-token: <token>`
-3. Dry-run a new Journey set (safe preview):
-	- `POST /api/admin/journey`
-	- Body example: `{ "dryRun": true, "totalLevels": 200 }`
-4. Rebuild and activate new set:
-	- `POST /api/admin/journey`
-	- Body example: `{ "dryRun": false, "force": true, "totalLevels": 200 }`
-
-Safety options for rebuild body:
-- `purgePreviousSets`: remove previous Journey sets after new set activation.
-- `resetPreviousProgress`: when purging, also delete old Journey results.
+- `docs/technical-guide.md`
