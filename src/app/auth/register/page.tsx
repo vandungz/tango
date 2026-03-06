@@ -121,10 +121,6 @@ export default function RegisterPage() {
     return (
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
-                <Link href="/" className={styles.backHome}>
-                    Back to home
-                </Link>
-                
                 <div className={styles.authLogo}>
                     <span className={styles.authLogoIcon}>◐</span>
                 </div>

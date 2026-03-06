@@ -339,28 +339,6 @@
     font-weight: bold;
 }
 
-/* Back to home button */
-.backHome {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 1.5rem;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    font-weight: 500;
-    text-decoration: none;
-    margin-bottom: 1rem;
-    padding: 0.5rem;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    width: max-content;
-}
-
-.backHome:hover {
-    color: var(--text-primary);
-    background: var(--cell-bg);
-}
-
 .modalOverlay {
     position: fixed;
     inset: 0;

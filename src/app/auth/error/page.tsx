@@ -35,10 +35,6 @@ function ErrorContent() {
     return (
         <div className={styles.authContainer}>
             <div className={styles.authCard}>
-                <Link href="/" className={styles.backHome}>
-                    Back to home
-                </Link>
-                
                 <div className={styles.authLogo}>
                     <span className={styles.authLogoIcon}>◐</span>
                 </div>
@@ -58,12 +54,6 @@ function ErrorContent() {
                         Sign in
                     </Link>
                 </div>
-
-                <p className={styles.linkText}>
-                    <Link href="/" className={styles.link}>
-                        Back to home
-                    </Link>
-                </p>
             </div>
         </div>
     );

@@ -8,10 +8,18 @@ const { auth } = NextAuth(authConfigEdge);
 export async function proxy(request: NextRequest) {
     // Run auth check
     const session = await auth();
-    const { pathname } = request.nextUrl;
+    const { pathname, search } = request.nextUrl;
     
     const isLoggedIn = !!session?.user;
     const isOnAuthPage = pathname.startsWith('/auth');
+
+    // Require login before allowing access to app routes.
+    if (!isLoggedIn && !isOnAuthPage) {
+        const loginUrl = new URL('/auth/login', request.url);
+        const callbackUrl = `${pathname}${search}`;
+        loginUrl.searchParams.set('callbackUrl', callbackUrl);
+        return NextResponse.redirect(loginUrl);
+    }
     
     // Redirect logged-in users away from auth pages (except error page)
     if (isLoggedIn && isOnAuthPage && pathname !== '/auth/error') {
@@ -33,6 +41,6 @@ export const config = {
          * - public folder files (images, etc.)
          * - api routes (handled separately)
          */
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+        '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
     ],
 };
