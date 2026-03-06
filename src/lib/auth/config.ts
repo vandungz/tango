@@ -26,6 +26,7 @@ export const authConfig: NextAuthConfig = {
                 token.id = user.id ?? '';
                 token.username = (user as { username?: string }).username ?? '';
                 token.email = user.email ?? '';
+                token.name = user.name ?? token.name ?? '';
             }
             return token;
         },
@@ -34,6 +35,7 @@ export const authConfig: NextAuthConfig = {
                 session.user.id = token.id as string;
                 session.user.username = token.username as string;
                 session.user.email = token.email as string;
+                session.user.name = (token.name as string | undefined) ?? session.user.name;
             }
             return session;
         },
@@ -73,10 +75,13 @@ export const authConfig: NextAuthConfig = {
                     return null;
                 }
 
+                const userDisplayName = (user as { displayName?: string | null }).displayName;
+
                 return {
                     id: user.id,
                     email: user.email,
                     username: user.username,
+                    name: userDisplayName ?? user.username,
                 };
             },
         }),
