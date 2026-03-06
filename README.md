@@ -28,9 +28,3 @@ You can play a fast daily challenge, track your progress, and improve your solvi
 ## Learn the Game
 
 - In-app guide: `/how-to-play`
-
-## For Developers
-
-Technical setup, deployment, and admin operation details are documented here:
-
-- `docs/technical-guide.md`
