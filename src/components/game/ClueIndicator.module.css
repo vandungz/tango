@@ -1,0 +1,29 @@
+.indicator {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 15px;
+    font-weight: 700;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    pointer-events: none;
+    line-height: 1;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.equal {
+    background: var(--clue-equal-bg);
+    color: var(--clue-equal-color);
+    font-size: 14px;
+}
+
+.cross {
+    background: var(--clue-cross-bg);
+    color: var(--clue-cross-color);
+    font-size: 16px;
+}

@@ -2,16 +2,35 @@ function clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));
 }
 
-export function journeyStarThresholds(difficulty: number, label: string) {
-    const normalized = clamp(Math.round(difficulty) || 1, 1, 5);
+function normalizeJourneyDifficulty(difficulty: number) {
+    if (!Number.isFinite(difficulty)) return 0.5;
+    return clamp((difficulty - 15) / 125, 0, 1);
+}
+
+function getLabelFactor(label: string) {
     const lower = label.toLowerCase();
+    if (lower.includes('very hard')) return 0.68;
+    if (lower.includes('hard')) return 0.82;
+    if (lower.includes('medium')) return 0.93;
+    return 1;
+}
 
-    const labelFactor = lower.includes('very hard') ? 0.78 : lower.includes('hard') ? 0.88 : 1;
-    const difficultyFactor = 1 - (normalized - 1) * 0.08;
+export function journeyStarThresholds(difficulty: number, label: string) {
+    const normalizedDifficulty = normalizeJourneyDifficulty(difficulty);
+    const labelFactor = getLabelFactor(label);
 
-    const threeStar = clamp(Math.round(150 * labelFactor * difficultyFactor), 75, 180);
-    const twoStar = Math.round(threeStar + 80 * labelFactor);
-    const maxTime = Math.round(twoStar + 90 * labelFactor);
+    const difficultyFactor = 1 - 0.35 * normalizedDifficulty;
+    const threeStarBase = 170;
+    const twoStarWindowBase = 90;
+    const oneStarWindowBase = 105;
+
+    const threeStar = clamp(Math.round(threeStarBase * labelFactor * difficultyFactor), 55, 220);
+
+    const twoStarWindow = Math.max(35, Math.round(twoStarWindowBase * labelFactor * (1 - 0.15 * normalizedDifficulty)));
+    const twoStar = threeStar + twoStarWindow;
+
+    const oneStarWindow = Math.max(35, Math.round(oneStarWindowBase * labelFactor * (1 - 0.2 * normalizedDifficulty)));
+    const maxTime = twoStar + oneStarWindow;
 
     return { threeStar, twoStar, maxTime };
 }

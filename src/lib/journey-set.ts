@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db';
-import { generatePuzzle, GeneratedPuzzle } from '@/lib/engine/puzzle-factory';
-import { BoardSize } from '@/lib/engine/types';
+import { generatePuzzle, GeneratedPuzzle } from '@/engine/puzzle-factory';
+import { BoardSize } from '@/engine/types';
 
 type JourneyLabel = 'Easy' | 'Medium' | 'Hard' | 'Very Hard';
 
@@ -63,6 +63,19 @@ const SPEC_RULES = [
     'Inverse Big Gap',
     'Constraint Enumeration',
 ];
+
+const RULE_DIFFICULTY: Record<string, number> = {
+    'Clue Propagation': 1,
+    'Almost Full': 1,
+    'Triple Prevention': 1,
+    'Gap Fill': 2,
+    'Touching Pair': 4,
+    'Edge Pair / Big Gap': 6,
+    'Equal-Gap': 7,
+    'Opposite Inference': 9,
+    'Inverse Big Gap': 9,
+    'Constraint Enumeration': 10,
+};
 
 const JOURNEY_SEGMENTS: JourneySegment[] = [
     {
@@ -151,21 +164,69 @@ function scorePuzzleForSegment(puzzle: GeneratedPuzzle, segment: JourneySegment)
     const minLabelRank = LABEL_RANK[segment.minLabel];
     const maxLabelRank = LABEL_RANK[segment.maxLabel];
 
-    if (!segment.sizes.includes(puzzle.size as BoardSize)) return Number.NEGATIVE_INFINITY;
-    if (labelRank < minLabelRank || labelRank > maxLabelRank) return Number.NEGATIVE_INFINITY;
-    if (puzzle.maxRuleDifficulty < segment.minRuleDifficulty || puzzle.maxRuleDifficulty > segment.maxRuleDifficulty) {
-        return Number.NEGATIVE_INFINITY;
-    }
+    const sizePenalty = segment.sizes.includes(puzzle.size as BoardSize) ? 0 : 80;
 
-    if (segment.requiredRules?.length) {
-        const hasRequired = segment.requiredRules.some((rule) => puzzle.rulesUsed.includes(rule));
-        if (!hasRequired) return Number.NEGATIVE_INFINITY;
-    }
+    const labelDistance = labelRank < minLabelRank ? minLabelRank - labelRank : labelRank > maxLabelRank ? labelRank - maxLabelRank : 0;
+
+    const ruleDifficultyDistance =
+        puzzle.maxRuleDifficulty < segment.minRuleDifficulty
+            ? segment.minRuleDifficulty - puzzle.maxRuleDifficulty
+            : puzzle.maxRuleDifficulty > segment.maxRuleDifficulty
+                ? puzzle.maxRuleDifficulty - segment.maxRuleDifficulty
+                : 0;
+
+    const missingRequiredCount = segment.requiredRules?.filter((rule) => !puzzle.rulesUsed.includes(rule)).length ?? 0;
 
     const preferredMatches = segment.preferredRules.reduce((sum, rule) => sum + (puzzle.rulesUsed.includes(rule) ? 1 : 0), 0);
     const difficultyDistance = Math.abs(segment.targetDifficulty - puzzle.difficulty);
 
-    return 200 - difficultyDistance + preferredMatches * 12 - Math.abs(segment.targetDifficulty - puzzle.maxRuleDifficulty * 12);
+    const penalty =
+        sizePenalty +
+        labelDistance * 25 +
+        ruleDifficultyDistance * 18 +
+        missingRequiredCount * 40;
+
+    return 260 - difficultyDistance + preferredMatches * 12 - Math.abs(segment.targetDifficulty - puzzle.maxRuleDifficulty * 12) - penalty;
+}
+
+function includesAllRules(puzzle: GeneratedPuzzle, requiredRules?: string[]): boolean {
+    if (!requiredRules || requiredRules.length === 0) return true;
+    return requiredRules.every((rule) => puzzle.rulesUsed.includes(rule));
+}
+
+function getMinimumRuleCoverage(totalLevels: number): Record<string, number> {
+    if (totalLevels >= 200) {
+        return {
+            'Opposite Inference': 4,
+        };
+    }
+
+    if (totalLevels >= 120) {
+        return {
+            'Opposite Inference': 2,
+        };
+    }
+
+    return {
+        'Opposite Inference': 1,
+    };
+}
+
+function countRemainingEligibleLevels(fromOrder: number, totalLevels: number, rule: string): number {
+    const requiredDifficulty = RULE_DIFFICULTY[rule] ?? 10;
+    let count = 0;
+
+    for (let order = fromOrder; order <= totalLevels; order++) {
+        const segment = getSegmentForLevel(order, totalLevels);
+        const eligibleByRuleList = segment.preferredRules.includes(rule) || (segment.requiredRules?.includes(rule) ?? false);
+        const eligibleByDifficulty = segment.maxRuleDifficulty >= requiredDifficulty;
+
+        if (eligibleByRuleList || eligibleByDifficulty) {
+            count += 1;
+        }
+    }
+
+    return count;
 }
 
 async function storePuzzleIfNeeded(puzzle: GeneratedPuzzle) {
@@ -195,16 +256,34 @@ async function storePuzzleIfNeeded(puzzle: GeneratedPuzzle) {
 async function planJourneyLevels(totalLevels: number, maxAttemptsPerLevel: number, perPuzzleAttempts: number): Promise<LevelPlan[]> {
     const planned: LevelPlan[] = [];
     const usedHashes = new Set<string>();
+    const minimumCoverage = getMinimumRuleCoverage(totalLevels);
+    const achievedCoverage = new Map<string, number>();
 
     for (let order = 1; order <= totalLevels; order++) {
         const segment = getSegmentForLevel(order, totalLevels);
-        let best: LevelPlan | null = null;
+        const mustIncludeRules = new Set<string>(segment.requiredRules ?? []);
 
-        for (let attempt = 0; attempt < maxAttemptsPerLevel; attempt++) {
+        for (const [rule, minCount] of Object.entries(minimumCoverage)) {
+            const currentCount = achievedCoverage.get(rule) ?? 0;
+            const remainingNeeded = minCount - currentCount;
+            if (remainingNeeded <= 0) continue;
+
+            const remainingEligible = countRemainingEligibleLevels(order, totalLevels, rule);
+            if (remainingEligible <= remainingNeeded) {
+                mustIncludeRules.add(rule);
+            }
+        }
+
+        let best: LevelPlan | null = null;
+        const requiredForLevel = Array.from(mustIncludeRules);
+        const strictAttempts = Math.max(maxAttemptsPerLevel, requiredForLevel.length > 0 ? maxAttemptsPerLevel * 3 : maxAttemptsPerLevel);
+
+        for (let attempt = 0; attempt < strictAttempts; attempt++) {
             const pickedSize = segment.sizes[(order + attempt) % segment.sizes.length];
             const candidate = generatePuzzle(pickedSize, { proMode: true, attempts: perPuzzleAttempts });
 
             if (usedHashes.has(candidate.hash)) continue;
+            if (!includesAllRules(candidate, requiredForLevel)) continue;
 
             const score = scorePuzzleForSegment(candidate, segment);
             if (!Number.isFinite(score)) continue;
@@ -219,11 +298,23 @@ async function planJourneyLevels(totalLevels: number, maxAttemptsPerLevel: numbe
         }
 
         if (!best) {
-            throw new Error(`Unable to curate puzzle for level ${order}. Increase generation attempts or relax segment constraints.`);
+            const suffix = requiredForLevel.length > 0 ? ` Required rules: ${requiredForLevel.join(', ')}` : '';
+            throw new Error(`Unable to curate puzzle for level ${order}. Increase generation attempts or relax segment constraints.${suffix}`);
         }
 
         usedHashes.add(best.puzzle.hash);
         planned.push(best);
+
+        for (const rule of best.puzzle.rulesUsed) {
+            achievedCoverage.set(rule, (achievedCoverage.get(rule) ?? 0) + 1);
+        }
+    }
+
+    for (const [rule, minCount] of Object.entries(minimumCoverage)) {
+        const actual = achievedCoverage.get(rule) ?? 0;
+        if (actual < minCount) {
+            throw new Error(`Journey coverage requirement unmet for rule "${rule}": ${actual}/${minCount}`);
+        }
     }
 
     return planned;
@@ -233,12 +324,14 @@ function summarizePlans(levelPlans: LevelPlan[]) {
     const sizeDistribution = new Map<number, number>();
     const labelDistribution = new Map<string, number>();
     const ruleCoverage = new Set<string>();
+    const ruleUsage = new Map<string, number>();
 
     for (const plan of levelPlans) {
         sizeDistribution.set(plan.puzzle.size, (sizeDistribution.get(plan.puzzle.size) ?? 0) + 1);
         labelDistribution.set(plan.puzzle.label, (labelDistribution.get(plan.puzzle.label) ?? 0) + 1);
         for (const rule of plan.puzzle.rulesUsed) {
             ruleCoverage.add(rule);
+            ruleUsage.set(rule, (ruleUsage.get(rule) ?? 0) + 1);
         }
     }
 
@@ -248,6 +341,7 @@ function summarizePlans(levelPlans: LevelPlan[]) {
         sizeDistribution: Object.fromEntries(sizeDistribution.entries()),
         labelDistribution: Object.fromEntries(labelDistribution.entries()),
         rulesCovered: Array.from(ruleCoverage).sort((a, b) => a.localeCompare(b)),
+        ruleUsage: Object.fromEntries(ruleUsage.entries()),
         missingRules,
     };
 }
@@ -304,44 +398,63 @@ export async function rebuildJourneySet(options: JourneyRebuildOptions = {}) {
     const now = new Date();
     const oldSetIds = activeSets.map((set: { id: string }) => set.id);
 
-    const created = await db.$transaction(async (tx) => {
-        if (oldSetIds.length > 0) {
-            await tx.journeySet.updateMany({
-                where: { id: { in: oldSetIds } },
+    if (oldSetIds.length > 0) {
+        for (const oldSetId of oldSetIds) {
+            await db.journeySet.update({
+                where: { id: oldSetId },
                 data: { isActive: false, archivedAt: now },
             });
         }
+    }
 
-        const journeySet = await tx.journeySet.create({
-            data: {
-                key: setKey,
-                label: setLabel,
-                description: options.description ?? 'Curated from algorithm-spec based level profiles',
-                totalLevels,
-                isActive: true,
-            },
-        });
+    const created = await db.journeySet.create({
+        data: {
+            key: setKey,
+            label: setLabel,
+            description: options.description ?? 'Curated from algorithm-spec based level profiles',
+            totalLevels,
+            isActive: true,
+        },
+    });
 
-        const levelRows = [] as Array<{ setId: string; order: number; puzzleId: string }>;
+    const levelRows = [] as Array<{ setId: string; order: number; puzzleId: string }>;
 
-        for (const plan of plans) {
-            const storedPuzzle = await storePuzzleIfNeeded(plan.puzzle);
-            levelRows.push({ setId: journeySet.id, order: plan.order, puzzleId: storedPuzzle.id });
-        }
+    for (const plan of plans) {
+        const storedPuzzle = await storePuzzleIfNeeded(plan.puzzle);
+        levelRows.push({ setId: created.id, order: plan.order, puzzleId: storedPuzzle.id });
+    }
 
-        await tx.journeyLevel.createMany({ data: levelRows });
+    for (const row of levelRows) {
+        await db.journeyLevel.create({ data: row });
+    }
 
-        if (options.purgePreviousSets && oldSetIds.length > 0) {
+    if (options.purgePreviousSets && oldSetIds.length > 0) {
+        for (const oldSetId of oldSetIds) {
+            const oldLevels = await db.journeyLevel.findMany({
+                where: { setId: oldSetId },
+                select: { id: true },
+            });
+
             if (options.resetPreviousProgress) {
-                await tx.journeyResult.deleteMany({ where: { level: { setId: { in: oldSetIds } } } });
+                for (const oldLevel of oldLevels) {
+                    const oldResults = await db.journeyResult.findMany({
+                        where: { levelId: oldLevel.id },
+                        select: { id: true },
+                    });
+
+                    for (const oldResult of oldResults) {
+                        await db.journeyResult.delete({ where: { id: oldResult.id } });
+                    }
+                }
             }
 
-            await tx.journeyLevel.deleteMany({ where: { setId: { in: oldSetIds } } });
-            await tx.journeySet.deleteMany({ where: { id: { in: oldSetIds } } });
-        }
+            for (const oldLevel of oldLevels) {
+                await db.journeyLevel.delete({ where: { id: oldLevel.id } });
+            }
 
-        return journeySet;
-    });
+            await db.journeySet.delete({ where: { id: oldSetId } });
+        }
+    }
 
     return {
         dryRun: false,
@@ -397,6 +510,7 @@ export async function auditActiveJourneySet() {
     const sizeDistribution = new Map<number, number>();
     const labelDistribution = new Map<string, number>();
     const ruleCoverage = new Set<string>();
+    const ruleUsage = new Map<string, number>();
     const progressionDrops: number[] = [];
 
     let previousDifficulty: number | null = null;
@@ -407,6 +521,7 @@ export async function auditActiveJourneySet() {
         const rules = parseRulesUsed(level.puzzle.rulesUsed);
         for (const rule of rules) {
             ruleCoverage.add(rule);
+            ruleUsage.set(rule, (ruleUsage.get(rule) ?? 0) + 1);
         }
 
         if (previousDifficulty !== null && level.puzzle.difficulty + 20 < previousDifficulty) {
@@ -431,6 +546,7 @@ export async function auditActiveJourneySet() {
         sizeDistribution: Object.fromEntries(sizeDistribution.entries()),
         labelDistribution: Object.fromEntries(labelDistribution.entries()),
         rulesCovered: Array.from(ruleCoverage).sort((a, b) => a.localeCompare(b)),
+        ruleUsage: Object.fromEntries(ruleUsage.entries()),
         missingRules,
         progressionDrops,
     };
