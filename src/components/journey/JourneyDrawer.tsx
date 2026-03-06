@@ -64,7 +64,7 @@ export default function JourneyDrawer({ open, onClose, onHome, mode, onDaily, on
     };
 
     return (
-        <div className={`${styles.overlay} ${open ? styles.open : ''}`} aria-hidden={!open}>
+        <div className={`${styles.overlay} ${open ? styles.open : ''}`} inert={!open}>
             <aside className={styles.drawer} aria-label={mode === 'journey' ? 'Journey level picker' : mode === 'daily' ? 'Daily options' : 'Home menu'}>
                 <div className={styles.topActions}>
                     {mode === 'journey' || mode === 'daily' ? (
