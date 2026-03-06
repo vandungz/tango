@@ -70,9 +70,9 @@ model Puzzle {
   label      String   // Easy, Medium, Hard, Very Hard
   createdAt  DateTime @default(now())
 
-  playedBy PlayedPuzzle[]
-  daily    DailyPuzzle?
-  journey  JourneyLevel?
+  playedBy      PlayedPuzzle[]
+  daily         DailyPuzzle?
+  journeyLevels JourneyLevel[]
 
   @@index([size, label])
 }
@@ -122,14 +122,36 @@ model DailyResult {
   @@index([sessionId])
 }
 
+model JourneySet {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  description String?
+  totalLevels Int
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  archivedAt  DateTime?
+
+  levels JourneyLevel[]
+
+  @@index([isActive])
+}
+
 model JourneyLevel {
   id        String   @id @default(cuid())
-  order     Int      @unique
-  puzzleId  String   @unique
+  setId     String
+  order     Int
+  puzzleId  String
   createdAt DateTime @default(now())
 
+  set    JourneySet      @relation(fields: [setId], references: [id])
   puzzle  Puzzle         @relation(fields: [puzzleId], references: [id])
   results JourneyResult[]
+
+  @@unique([setId, order])
+  @@unique([setId, puzzleId])
+  @@index([setId, order])
 }
 
 model JourneyResult {

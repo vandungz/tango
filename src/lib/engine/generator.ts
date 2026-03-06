@@ -2,7 +2,7 @@
 // Constructs a fully solved board row-by-row using valid row patterns
 // with column validation and backtracking
 
-import { Board, CellValue, BoardSize } from './types';
+import { Board, BoardSize } from './types';
 import { getBasePatterns, getPatternVariations, shuffle } from './patterns';
 
 // Check if placing a row at rowIndex keeps all columns valid
@@ -31,35 +31,6 @@ function isColumnValid(board: Board, rowIndex: number, size: number): boolean {
         }
     }
 
-    // Check column uniqueness (no two columns identical so far)
-    // Only check when all rows are placed
-    if (rowIndex === size - 1) {
-        for (let c1 = 0; c1 < size; c1++) {
-            for (let c2 = c1 + 1; c2 < size; c2++) {
-                let same = true;
-                for (let r = 0; r < size; r++) {
-                    if (board[r][c1] !== board[r][c2]) {
-                        same = false;
-                        break;
-                    }
-                }
-                if (same) return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-// Check that no two rows are identical
-function areRowsUnique(board: Board, upToRow: number): boolean {
-    for (let r1 = 0; r1 <= upToRow; r1++) {
-        for (let r2 = r1 + 1; r2 <= upToRow; r2++) {
-            if (board[r1].every((v, i) => v === board[r2][i])) {
-                return false;
-            }
-        }
-    }
     return true;
 }
 
@@ -78,10 +49,7 @@ export function generateSolution(size: BoardSize): Board | null {
         for (const pattern of shuffled) {
             board[rowIndex] = [...pattern];
 
-            if (
-                isColumnValid(board, rowIndex, size) &&
-                areRowsUnique(board, rowIndex)
-            ) {
+            if (isColumnValid(board, rowIndex, size)) {
                 if (backtrack(rowIndex + 1)) {
                     return true;
                 }

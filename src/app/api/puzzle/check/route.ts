@@ -8,6 +8,7 @@ import { findLogicErrors, isBoardComplete } from '@/lib/engine/validation';
 import { journeyStarsFromTime } from '@/lib/journey-stars';
 import { computeDailyStreak, startOfDayUtc, starsFromTime } from '@/lib/progression';
 import { resolvePlayerIdentity } from '@/lib/player';
+import { getActiveJourneySet } from '@/lib/journey-set';
 
 type Mode = 'daily' | 'journey' | 'classic';
 
@@ -15,6 +16,7 @@ const db = prisma as unknown as {
     puzzle: typeof prisma.puzzle;
     dailyPuzzle: any;
     dailyResult: any;
+    journeySet: any;
     journeyLevel: any;
     journeyResult: any;
 };
@@ -124,12 +126,17 @@ export async function POST(request: NextRequest) {
                 const stars = hasDuration ? journeyStarsFromTime(durationSeconds, puzzle.difficulty, puzzle.label) : 0;
                 const levelId = typeof meta?.levelId === 'string' ? meta.levelId : undefined;
                 const levelOrder = Number.isFinite(meta?.level as number) ? Number(meta?.level) : undefined;
+                const activeSet = await getActiveJourneySet();
+
+                if (!activeSet) {
+                    return NextResponse.json({ error: 'No active Journey set' }, { status: 404 });
+                }
 
                 const level = levelId
-                    ? await db.journeyLevel.findUnique({ where: { id: levelId } })
+                    ? await db.journeyLevel.findFirst({ where: { id: levelId, setId: activeSet.id } })
                     : levelOrder
-                        ? await db.journeyLevel.findUnique({ where: { order: levelOrder } })
-                        : await db.journeyLevel.findFirst({ where: { puzzleId } });
+                        ? await db.journeyLevel.findUnique({ where: { setId_order: { setId: activeSet.id, order: levelOrder } } })
+                        : await db.journeyLevel.findFirst({ where: { puzzleId, setId: activeSet.id } });
 
                 if (level) {
                     const existingWhere = player.userId

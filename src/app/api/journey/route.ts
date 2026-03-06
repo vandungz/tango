@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { resolvePlayerIdentity } from '@/lib/player';
+import { getActiveJourneySet } from '@/lib/journey-set';
 
 const db = prisma as unknown as {
     journeyResult: any;
     journeyLevel: any;
 };
-
-const TOTAL_LEVELS = 200;
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -20,8 +19,24 @@ export async function GET(request: NextRequest) {
     const where = player.userId ? { userId: player.userId } : { sessionId: player.sessionId };
 
     try {
+        const activeSet = await getActiveJourneySet();
+
+        if (!activeSet) {
+            return NextResponse.json({
+                totalLevels: 0,
+                nextLevel: 1,
+                starsEarned: 0,
+                progress: [],
+            });
+        }
+
         const results = await db.journeyResult.findMany({
-            where,
+            where: {
+                ...where,
+                level: {
+                    setId: activeSet.id,
+                },
+            },
             orderBy: { completedAt: 'asc' },
         });
 
@@ -53,8 +68,8 @@ export async function GET(request: NextRequest) {
             );
 
         const completed = new Set(progress.map((p: { level: number }) => p.level));
-        let nextLevel = TOTAL_LEVELS;
-        for (let i = 1; i <= TOTAL_LEVELS; i++) {
+        let nextLevel = activeSet.totalLevels;
+        for (let i = 1; i <= activeSet.totalLevels; i++) {
             if (!completed.has(i)) {
                 nextLevel = i;
                 break;
@@ -64,7 +79,7 @@ export async function GET(request: NextRequest) {
         const starsEarned = progress.reduce((sum: number, p: { stars: number }) => sum + p.stars, 0);
 
         return NextResponse.json({
-            totalLevels: TOTAL_LEVELS,
+            totalLevels: activeSet.totalLevels,
             nextLevel,
             starsEarned,
             progress,

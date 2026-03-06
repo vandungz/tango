@@ -42,3 +42,22 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 Notes:
 - Prisma schema now targets Postgres; no SQLite adapter needed.
 - If you change the Prisma schema, rerun `npm run db:push` to sync Neon.
+
+## Journey set audit & rebuild
+
+Journey mode now uses a versioned active set (`JourneySet`) so you can safely evaluate and regenerate curated levels.
+
+1. Set an admin token in env:
+	- `JOURNEY_ADMIN_TOKEN=your-strong-token`
+2. Audit current active set:
+	- `GET /api/admin/journey` with header `x-admin-token: <token>`
+3. Dry-run a new Journey set (safe preview):
+	- `POST /api/admin/journey`
+	- Body example: `{ "dryRun": true, "totalLevels": 200 }`
+4. Rebuild and activate new set:
+	- `POST /api/admin/journey`
+	- Body example: `{ "dryRun": false, "force": true, "totalLevels": 200 }`
+
+Safety options for rebuild body:
+- `purgePreviousSets`: remove previous Journey sets after new set activation.
+- `resetPreviousProgress`: when purging, also delete old Journey results.

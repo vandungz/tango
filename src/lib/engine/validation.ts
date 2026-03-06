@@ -88,63 +88,6 @@ export function findLogicErrors(board: Board, clues: Clue[], size: number): [num
         }
     }
 
-    // Row uniqueness for complete rows
-    for (let r1 = 0; r1 < size; r1++) {
-        const rowComplete = board[r1].every(Boolean);
-        if (!rowComplete) continue;
-
-        for (let r2 = r1 + 1; r2 < size; r2++) {
-            const otherComplete = board[r2].every(Boolean);
-            if (!otherComplete) continue;
-
-            const same = board[r1].every((v, idx) => v === board[r2][idx]);
-            if (same) {
-                for (let c = 0; c < size; c++) {
-                    errors.add(`${r1},${c}`);
-                    errors.add(`${r2},${c}`);
-                }
-            }
-        }
-    }
-
-    // Column uniqueness for complete columns
-    for (let c1 = 0; c1 < size; c1++) {
-        let colComplete = true;
-        for (let r = 0; r < size; r++) {
-            if (!board[r][c1]) {
-                colComplete = false;
-                break;
-            }
-        }
-        if (!colComplete) continue;
-
-        for (let c2 = c1 + 1; c2 < size; c2++) {
-            let otherComplete = true;
-            for (let r = 0; r < size; r++) {
-                if (!board[r][c2]) {
-                    otherComplete = false;
-                    break;
-                }
-            }
-            if (!otherComplete) continue;
-
-            let same = true;
-            for (let r = 0; r < size; r++) {
-                if (board[r][c1] !== board[r][c2]) {
-                    same = false;
-                    break;
-                }
-            }
-
-            if (same) {
-                for (let r = 0; r < size; r++) {
-                    errors.add(`${r},${c1}`);
-                    errors.add(`${r},${c2}`);
-                }
-            }
-        }
-    }
-
     return Array.from(errors).map(key => key.split(',').map(Number) as [number, number]);
 }
 
@@ -156,49 +99,6 @@ export function isBoardCompleteAndValid(board: Board, clues: Clue[], size: numbe
     const errors = findLogicErrors(board, clues, size);
     const complete = errors.length === 0 && isBoardComplete(board);
     return { errors, complete };
-}
-
-function violatesUniqueness(board: Board, row: number, col: number, size: number): boolean {
-    const rowComplete = board[row].every(Boolean);
-    if (rowComplete) {
-        for (let r2 = 0; r2 < size; r2++) {
-            if (r2 === row || !board[r2].every(Boolean)) continue;
-            if (board[row].every((v, idx) => v === board[r2][idx])) return true;
-        }
-    }
-
-    let colComplete = true;
-    for (let r = 0; r < size; r++) {
-        if (!board[r][col]) {
-            colComplete = false;
-            break;
-        }
-    }
-    if (colComplete) {
-        for (let c2 = 0; c2 < size; c2++) {
-            if (c2 === col) continue;
-            let otherComplete = true;
-            for (let r = 0; r < size; r++) {
-                if (!board[r][c2]) {
-                    otherComplete = false;
-                    break;
-                }
-            }
-            if (!otherComplete) continue;
-
-            let same = true;
-            for (let r = 0; r < size; r++) {
-                if (board[r][col] !== board[r][c2]) {
-                    same = false;
-                    break;
-                }
-            }
-
-            if (same) return true;
-        }
-    }
-
-    return false;
 }
 
 function isPlacementValid(board: Board, clues: Clue[], size: number, row: number, col: number, value: CellValue): boolean {
@@ -270,12 +170,6 @@ function isPlacementValid(board: Board, clues: Clue[], size: number, row: number
                 return false;
             }
         }
-    }
-
-    // Uniqueness checks when row/col complete
-    if (violatesUniqueness(board, row, col, size)) {
-        board[row][col] = null;
-        return false;
     }
 
     board[row][col] = null;
