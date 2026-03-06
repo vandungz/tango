@@ -1,13 +1,15 @@
 'use client';
 
 import React from 'react';
-import { useGame } from '@/lib/game-state';
+import { useGame } from '@/contexts/game-state';
 import styles from './Controls.module.css';
 
 export default function Controls() {
     const { undo, reset, requestHint, newGame, state } = useGame();
 
     const nextLabel = state.mode === 'journey' ? 'Next Level →' : 'Play Again →';
+    const isJourneyHintExhausted = state.mode === 'journey' && state.hintsUsed >= 5;
+    const isHintDisabled = state.isWon || isJourneyHintExhausted;
 
     return (
         <div className={styles.controls}>
@@ -38,9 +40,9 @@ export default function Controls() {
             </div>
             <div className={styles.row}>
                 <button
-                    className={`${styles.btn} ${styles.hint}`}
+                    className={`${styles.btn} ${styles.hint} ${isJourneyHintExhausted ? styles.hintInactive : ''}`}
                     onClick={requestHint}
-                    disabled={state.isWon}
+                    disabled={isHintDisabled}
                     title="Get Hint"
                 >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

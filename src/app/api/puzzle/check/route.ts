@@ -3,8 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { CellValue } from '@/lib/engine/types';
-import { findLogicErrors, isBoardComplete } from '@/lib/engine/validation';
+import { CellValue } from '@/engine/types';
+import { findLogicErrors, isBoardComplete } from '@/engine/validation';
 import { journeyStarsFromTime } from '@/lib/journey-stars';
 import { computeDailyStreak, startOfDayUtc, starsFromTime } from '@/lib/progression';
 import { resolvePlayerIdentity } from '@/lib/player';

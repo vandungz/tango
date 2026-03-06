@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useGame } from '@/lib/game-state';
-import { BoardSize } from '@/lib/engine/types';
+import { useGame } from '@/contexts/game-state';
+import { BoardSize } from '@/engine/types';
 import styles from './SizeSelector.module.css';
 
 const SIZES: { size: BoardSize; label: string }[] = [

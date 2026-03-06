@@ -19,7 +19,7 @@ export interface GeneratePuzzleOptions {
 }
 
 const GENERATION_VERSION = 'pipeline-v2';
-const SOLVER_VERSION = 'rule-engine-v2';
+const SOLVER_VERSION = 'rule-engine-v3';
 
 function countGivenCells(board: (null | 'sun' | 'moon')[][]): number {
     let total = 0;

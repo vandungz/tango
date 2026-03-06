@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useGame } from '@/lib/game-state';
+import { useGame } from '@/contexts/game-state';
 import { journeyStarsFromTime, journeyStarThresholds } from '@/lib/journey-stars';
 import styles from './GameHeader.module.css';
 

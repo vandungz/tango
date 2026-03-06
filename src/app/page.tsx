@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ThemeProvider } from '@/lib/theme';
-import { GameProvider, useGame } from '@/lib/game-state';
-import TopBar from '@/components/TopBar';
-import GameHeader from '@/components/GameHeader';
-import Board from '@/components/Board';
-import Controls from '@/components/Controls';
-import WinModal from '@/components/WinModal';
-import StartScreen from '@/components/StartScreen';
-import JourneyDrawer from '@/components/JourneyDrawer';
+import { ThemeProvider } from '@/contexts/theme';
+import { GameProvider, useGame } from '@/contexts/game-state';
+import TopBar from '@/components/layout/TopBar';
+import GameHeader from '@/components/game/GameHeader';
+import Board from '@/components/game/Board';
+import Controls from '@/components/game/Controls';
+import WinModal from '@/components/game/WinModal';
+import StartScreen from '@/components/layout/StartScreen';
+import JourneyDrawer from '@/components/journey/JourneyDrawer';
 import styles from './page.module.css';
 
 export default function Home() {

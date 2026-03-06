@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useGame } from '@/lib/game-state';
+import { useGame } from '@/contexts/game-state';
 import { journeyStarsFromTime } from '@/lib/journey-stars';
 import { getStreak, getBestStreak, getGamesPlayed, getGamesWon } from '@/lib/storage';
 import styles from './WinModal.module.css';

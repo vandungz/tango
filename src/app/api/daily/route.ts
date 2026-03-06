@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { generatePuzzle } from '@/lib/engine/puzzle-factory';
-import { BoardSize } from '@/lib/engine/types';
+import { generatePuzzle } from '@/engine/puzzle-factory';
+import { BoardSize } from '@/engine/types';
 import { computeDailyStreak, startOfDayUtc, starsFromTime } from '@/lib/progression';
 import { resolvePlayerIdentity } from '@/lib/player';
 

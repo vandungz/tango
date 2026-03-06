@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { useGame } from '@/lib/game-state';
-import { BoardSize } from '@/lib/engine/types';
+import { useGame } from '@/contexts/game-state';
+import { BoardSize } from '@/engine/types';
 import JourneyGrid from './JourneyGrid';
 import styles from './JourneyDrawer.module.css';
 

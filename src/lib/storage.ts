@@ -1,6 +1,6 @@
 // localStorage wrapper for persistence
 
-import { BoardSize } from './engine/types';
+import { BoardSize } from '@/engine/types';
 
 const KEYS = {
     SESSION_ID: 'tango_session_id',

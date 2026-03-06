@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useTheme } from '@/lib/theme';
-import { useGame } from '@/lib/game-state';
+import { useTheme } from '@/contexts/theme';
+import { useGame } from '@/contexts/game-state';
 import styles from './TopBar.module.css';
 
 interface TopBarProps {

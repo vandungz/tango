@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useGame } from '@/lib/game-state';
+import { useGame } from '@/contexts/game-state';
 import styles from './Cell.module.css';
 
 interface CellProps {
