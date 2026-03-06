@@ -61,12 +61,14 @@ export async function generateVerificationToken(
  */
 export async function verifyToken(
     token: string,
-    type: TokenType
+    type: TokenType,
+    identifier?: string
 ): Promise<{ identifier: string; metadata?: string | null } | null> {
     const verificationToken = await prisma.verificationToken.findFirst({
         where: {
             token,
             type,
+            ...(identifier ? { identifier } : {}),
             expires: {
                 gt: new Date(),
             },
@@ -91,70 +93,96 @@ export async function verifyToken(
 /**
  * Send verification email with 6-digit code
  */
+interface AuthEmailContent {
+    preTitle: string;
+    title: string;
+    description: string;
+    expiryText: string;
+    footerNote: string;
+    codePalette: {
+        background: string;
+        border: string;
+        text: string;
+    };
+}
+
+function renderCodeBoxes(code: string, palette: AuthEmailContent['codePalette']): string {
+    return code
+        .split('')
+        .map(
+            d =>
+                `<td style="width:44px;height:52px;background:${palette.background};border:1px solid ${palette.border};border-radius:10px;text-align:center;vertical-align:middle;font-size:28px;font-weight:700;color:${palette.text};font-family:'Segoe UI',Arial,sans-serif;">${d}</td>`
+        )
+        .join('<td style="width:8px;"></td>');
+}
+
+function buildAuthEmailHtml(code: string, content: AuthEmailContent): string {
+    const digitBoxes = renderCodeBoxes(code, content.codePalette);
+    const logoBand = `
+        <div style="display:inline-flex;align-items:center;gap:12px;padding:8px 14px;border:1px solid #e2e4e8;border-radius:999px;background:#ffffff;">
+            <span style="font-size:16px;line-height:1;color:#5b6dcd;">◐</span>
+            <span style="font-size:14px;font-weight:700;letter-spacing:-0.2px;color:#1a1d24;">Tango</span>
+        </div>
+    `;
+
+    return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:24px 12px;background-color:#f5f6f8;font-family:'Segoe UI',Arial,sans-serif;color:#1a1d24;">
+    <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e4e8;border-radius:16px;overflow:hidden;">
+        <div style="padding:20px 24px;border-bottom:1px solid #e8eaed;background:#fbfbfc;">
+            ${logoBand}
+        </div>
+
+        <div style="padding:30px 24px 24px;">
+            <p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#6b7280;">${content.preTitle}</p>
+            <h1 style="margin:0 0 14px;font-size:30px;line-height:1.2;letter-spacing:-0.6px;color:#1a1d24;">${content.title}</h1>
+            <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#4b5563;">${content.description}</p>
+
+            <div style="margin:0 0 22px;text-align:center;">
+                <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr>${digitBoxes}</tr></table>
+            </div>
+
+            <div style="padding:12px 14px;background:#f9fafb;border:1px solid #e8eaed;border-radius:10px;margin-bottom:22px;">
+                <p style="margin:0;font-size:13px;line-height:1.5;color:#4b5563;">${content.expiryText}</p>
+            </div>
+
+            <hr style="border:none;border-top:1px solid #e8eaed;margin:0 0 14px;">
+
+            <p style="margin:0;font-size:12px;line-height:1.6;color:#6b7280;">${content.footerNote}</p>
+        </div>
+
+        <div style="padding:14px 24px;background:#fbfbfc;border-top:1px solid #e8eaed;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;">© 2026 Tango Game</p>
+        </div>
+    </div>
+</body>
+</html>
+    `;
+}
+
 export async function sendVerificationEmail(
     email: string,
     code: string
 ): Promise<void> {
-    const digits = code.split('');
-    const digitBoxes = digits.map(d =>
-        `<td style="width:44px;height:52px;background:#f0f4ff;border:2px solid #6366f1;border-radius:10px;text-align:center;vertical-align:middle;font-size:28px;font-weight:700;color:#1e1b4b;letter-spacing:0;font-family:'Courier New',monospace;">${d}</td>`
-    ).join('<td style="width:8px;"></td>');
-
     await sendEmail({
         to: email,
         subject: 'Registration verification code - Tango Game',
-        html: `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
-<div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-    
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a78bfa 100%);padding:36px 32px;text-align:center;">
-        <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:14px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
-            <span style="font-size:28px;">🎯</span>
-        </div>
-        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Verify your account</h1>
-        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Welcome to Tango Game!</p>
-    </div>
-
-    <!-- Body -->
-    <div style="padding:32px;">
-        <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 8px;">
-            Thanks for signing up! Please enter the verification code below to complete your registration:
-        </p>
-        
-        <!-- Code Box -->
-        <div style="margin:24px 0;text-align:center;">
-            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-                <tr>${digitBoxes}</tr>
-            </table>
-        </div>
-
-        <!-- Timer -->
-        <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
-            <p style="margin:0;color:#92400e;font-size:13px;">
-                ⏰ This code will expire in <strong>24 hours</strong>
-            </p>
-        </div>
-
-        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
-
-        <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;text-align:center;">
-            If you did not request this registration, please ignore this email.<br>
-            This email was sent automatically. Please do not reply.
-        </p>
-    </div>
-
-    <!-- Footer -->
-    <div style="background:#f9fafb;padding:16px 32px;text-align:center;border-top:1px solid #f3f4f6;">
-        <p style="margin:0;color:#d1d5db;font-size:11px;">© 2026 Tango Game. All rights reserved.</p>
-    </div>
-</div>
-</body>
-</html>
-        `,
+        html: buildAuthEmailHtml(code, {
+            preTitle: 'Account verification',
+            title: 'Verify your account',
+            description:
+                'Thanks for signing up. Enter the verification code below to complete your registration.',
+            expiryText: 'This verification code expires in 24 hours.',
+            footerNote:
+                'If you did not request this registration, you can safely ignore this email. This mailbox is not monitored.',
+            codePalette: {
+                background: '#f3f6ff',
+                border: '#cfd8ff',
+                text: '#33407b',
+            },
+        }),
     });
 }
 
@@ -165,72 +193,34 @@ export async function sendPasswordResetEmail(
     email: string,
     code: string
 ): Promise<void> {
-    const digits = code.split('');
-    const digitBoxes = digits.map(d =>
-        `<td style="width:44px;height:52px;background:#fef2f2;border:2px solid #ef4444;border-radius:10px;text-align:center;vertical-align:middle;font-size:28px;font-weight:700;color:#7f1d1d;letter-spacing:0;font-family:'Courier New',monospace;">${d}</td>`
-    ).join('<td style="width:8px;"></td>');
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true },
+    });
+
+    if (!existingUser) {
+        console.warn(`Skipped password reset email for unregistered address: ${normalizedEmail}`);
+        return;
+    }
 
     await sendEmail({
-        to: email,
+        to: normalizedEmail,
         subject: 'Password reset - Tango Game',
-        html: `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;">
-<div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-    
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#dc2626 0%,#ef4444 50%,#f87171 100%);padding:36px 32px;text-align:center;">
-        <div style="width:56px;height:56px;background:rgba(255,255,255,0.2);border-radius:14px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
-            <span style="font-size:28px;">🔐</span>
-        </div>
-        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Reset password</h1>
-        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Password recovery request</p>
-    </div>
-
-    <!-- Body -->
-    <div style="padding:32px;">
-        <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 8px;">
-            You requested a password reset. Enter the verification code below to continue:
-        </p>
-        
-        <!-- Code Box -->
-        <div style="margin:24px 0;text-align:center;">
-            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-                <tr>${digitBoxes}</tr>
-            </table>
-        </div>
-
-        <!-- Timer -->
-        <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
-            <p style="margin:0;color:#92400e;font-size:13px;">
-                ⏰ This code will expire in <strong>1 hour</strong>
-            </p>
-        </div>
-
-        <!-- Security note -->
-        <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
-            <p style="margin:0;color:#991b1b;font-size:13px;">
-                🛡️ If you did <strong>not request</strong> a password reset, someone may be trying to access your account. Please ignore this email.
-            </p>
-        </div>
-
-        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
-
-        <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;text-align:center;">
-            This email was sent automatically. Please do not reply.
-        </p>
-    </div>
-
-    <!-- Footer -->
-    <div style="background:#f9fafb;padding:16px 32px;text-align:center;border-top:1px solid #f3f4f6;">
-        <p style="margin:0;color:#d1d5db;font-size:11px;">© 2026 Tango Game. All rights reserved.</p>
-    </div>
-</div>
-</body>
-</html>
-        `,
+        html: buildAuthEmailHtml(code, {
+            preTitle: 'Security',
+            title: 'Reset your password',
+            description:
+                'We received a password reset request for your account. Enter the code below to continue.',
+            expiryText: 'This verification code expires in 1 hour.',
+            footerNote:
+                'If you did not request a password reset, no further action is required and your account remains unchanged.',
+            codePalette: {
+                background: '#fdf4f4',
+                border: '#f2caca',
+                text: '#7f1d1d',
+            },
+        }),
     });
 }
 
