@@ -4,118 +4,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { CellValue, Clue } from '@/engine/types';
+import { getNextHint } from '@/engine/solver';
+import { findLogicErrors } from '@/engine/validation';
 
-interface HintCandidate {
-    row: number;
-    col: number;
-    value: CellValue;
-    score: number;
-}
+type HintMode = 'daily' | 'journey';
 
-function getClueCells(clue: Clue): [{ row: number; col: number }, { row: number; col: number }] {
-    if (clue.direction === 'h') {
-        return [
-            { row: clue.row, col: clue.col },
-            { row: clue.row, col: clue.col + 1 },
-        ];
+function getHintBudget(mode: HintMode) {
+    // Journey prioritizes low latency to protect star-timing gameplay.
+    if (mode === 'journey') {
+        return { maxMs: 120, maxRuleDifficulty: 9 };
     }
 
-    return [
-        { row: clue.row, col: clue.col },
-        { row: clue.row + 1, col: clue.col },
-    ];
+    return { maxMs: 240, maxRuleDifficulty: 10 };
 }
 
-function selectSmartHintCell(currentBoard: CellValue[][], solution: CellValue[][], clues: Clue[]): HintCandidate | null {
+function isSameBoardShape(board: CellValue[][], size: number): boolean {
+    return Array.isArray(board) && board.length === size && board.every(row => Array.isArray(row) && row.length === size);
+}
+
+function findFirstMismatch(
+    currentBoard: CellValue[][],
+    solution: CellValue[][],
+    initialBoard: CellValue[][],
+): { row: number; col: number; value: CellValue } | null {
     const size = solution.length;
-
-    const rowFilledCounts = Array.from({ length: size }, (_, row) => (
-        currentBoard[row]?.reduce((count, cell) => count + (cell ? 1 : 0), 0) ?? 0
-    ));
-
-    const colFilledCounts = Array.from({ length: size }, (_, col) => {
-        let count = 0;
-        for (let row = 0; row < size; row++) {
-            if (currentBoard[row]?.[col]) count += 1;
-        }
-        return count;
-    });
-
-    const cluePressureByCell = new Map<string, number>();
-
-    for (const clue of clues) {
-        const [first, second] = getClueCells(clue);
-        const firstCurrent = currentBoard[first.row]?.[first.col] ?? null;
-        const secondCurrent = currentBoard[second.row]?.[second.col] ?? null;
-        const firstTarget = solution[first.row]?.[first.col] ?? null;
-        const secondTarget = solution[second.row]?.[second.col] ?? null;
-
-        const unresolved = firstCurrent !== firstTarget || secondCurrent !== secondTarget;
-        if (!unresolved) continue;
-
-        const firstKey = `${first.row}:${first.col}`;
-        const secondKey = `${second.row}:${second.col}`;
-        cluePressureByCell.set(firstKey, (cluePressureByCell.get(firstKey) ?? 0) + 1);
-        cluePressureByCell.set(secondKey, (cluePressureByCell.get(secondKey) ?? 0) + 1);
-    }
-
-    const candidates: HintCandidate[] = [];
 
     for (let row = 0; row < size; row++) {
         for (let col = 0; col < size; col++) {
-            const target = solution[row]?.[col] ?? null;
+            const locked = Boolean(initialBoard[row]?.[col]);
+            if (locked) continue;
+
             const current = currentBoard[row]?.[col] ?? null;
-
-            if (!target || current === target) continue;
-
-            const isWrongFilled = current !== null && current !== target;
-            const rowCompletion = rowFilledCounts[row] / size;
-            const colCompletion = colFilledCounts[col] / size;
-            const cluePressure = cluePressureByCell.get(`${row}:${col}`) ?? 0;
-
-            let nearbyMismatch = 0;
-            if (row > 0 && currentBoard[row - 1]?.[col] !== solution[row - 1]?.[col]) nearbyMismatch += 1;
-            if (row < size - 1 && currentBoard[row + 1]?.[col] !== solution[row + 1]?.[col]) nearbyMismatch += 1;
-            if (col > 0 && currentBoard[row]?.[col - 1] !== solution[row]?.[col - 1]) nearbyMismatch += 1;
-            if (col < size - 1 && currentBoard[row]?.[col + 1] !== solution[row]?.[col + 1]) nearbyMismatch += 1;
-
-            const score =
-                (isWrongFilled ? 5 : 2) +
-                (rowCompletion + colCompletion) * 2 +
-                cluePressure * 1.5 +
-                nearbyMismatch * 0.6 +
-                Math.random() * 1.25;
-
-            candidates.push({ row, col, value: target, score });
+            const expected = solution[row]?.[col] ?? null;
+            if (expected && current !== expected) {
+                return { row, col, value: expected };
+            }
         }
     }
 
-    if (candidates.length === 0) return null;
-
-    candidates.sort((a, b) => b.score - a.score);
-    const poolSize = Math.min(Math.max(4, Math.ceil(candidates.length * 0.5)), candidates.length);
-    const topPool = candidates.slice(0, poolSize);
-
-    const totalWeight = topPool.reduce((sum, candidate) => sum + candidate.score, 0);
-    if (totalWeight <= 0) {
-        return topPool[Math.floor(Math.random() * topPool.length)] ?? null;
-    }
-
-    let pick = Math.random() * totalWeight;
-    for (const candidate of topPool) {
-        pick -= candidate.score;
-        if (pick <= 0) return candidate;
-    }
-
-    return topPool[topPool.length - 1] ?? null;
+    return null;
 }
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { puzzleId, currentBoard } = body as {
+        const { puzzleId, currentBoard, mode } = body as {
             puzzleId: string;
             currentBoard: CellValue[][];
+            mode?: HintMode;
         };
 
         if (!puzzleId || !currentBoard) {
@@ -131,12 +67,80 @@ export async function POST(request: NextRequest) {
         }
 
         const solution = JSON.parse(puzzle.solution) as CellValue[][];
+        const initialBoard = JSON.parse(puzzle.board) as CellValue[][];
         const clues = JSON.parse(puzzle.clues) as Clue[];
+        const size = solution.length;
+        const safeMode: HintMode = mode === 'journey' ? 'journey' : 'daily';
+        const budget = getHintBudget(safeMode);
+        const analysisStartedAt = Date.now();
 
-        const hintCell = selectSmartHintCell(currentBoard, solution, clues);
+        if (!isSameBoardShape(currentBoard, size)) {
+            return NextResponse.json({ error: 'Invalid board shape' }, { status: 400 });
+        }
+
+        // Priority 1: if board currently violates rules, guide player to fix a conflicting cell first.
+        const logicErrors = findLogicErrors(currentBoard, clues, size);
+        if (logicErrors.length > 0) {
+            const mismatchInErrors = logicErrors
+                .map(([row, col]) => {
+                    const expected = solution[row]?.[col] ?? null;
+                    const current = currentBoard[row]?.[col] ?? null;
+                    const locked = Boolean(initialBoard[row]?.[col]);
+                    if (!expected || locked || current === expected) return null;
+                    return { row, col, value: expected };
+                })
+                .find(Boolean);
+
+            if (mismatchInErrors) {
+                return NextResponse.json({
+                    hint: {
+                        row: mismatchInErrors.row,
+                        col: mismatchInErrors.col,
+                        value: mismatchInErrors.value,
+                        rule: 'Conflict Recovery',
+                        difficulty: 1,
+                    },
+                    metrics: {
+                        analysisMs: Date.now() - analysisStartedAt,
+                        mode: safeMode,
+                        budgetMs: budget.maxMs,
+                    },
+                });
+            }
+        }
+
+        // Priority 2: infer the next step from the current board using the rule engine.
+        const nextStep = getNextHint(currentBoard, clues, size, budget);
+        if (nextStep) {
+            return NextResponse.json({
+                hint: {
+                    row: nextStep.row,
+                    col: nextStep.col,
+                    value: nextStep.value,
+                    rule: nextStep.rule,
+                    difficulty: nextStep.difficulty,
+                },
+                metrics: {
+                    analysisMs: Date.now() - analysisStartedAt,
+                    mode: safeMode,
+                    budgetMs: budget.maxMs,
+                },
+            });
+        }
+
+        // Priority 3: deterministic fallback when no rule can be applied from current state.
+        const hintCell = findFirstMismatch(currentBoard, solution, initialBoard);
 
         if (!hintCell) {
-            return NextResponse.json({ hint: null, message: 'Board already matches solution' });
+            return NextResponse.json({
+                hint: null,
+                message: 'Board already matches solution',
+                metrics: {
+                    analysisMs: Date.now() - analysisStartedAt,
+                    mode: safeMode,
+                    budgetMs: budget.maxMs,
+                },
+            });
         }
 
         return NextResponse.json({
@@ -144,7 +148,13 @@ export async function POST(request: NextRequest) {
                 row: hintCell.row,
                 col: hintCell.col,
                 value: hintCell.value,
-                rule: 'Smart random solution cell',
+                rule: 'Deterministic Recovery',
+                difficulty: 10,
+            },
+            metrics: {
+                analysisMs: Date.now() - analysisStartedAt,
+                mode: safeMode,
+                budgetMs: budget.maxMs,
             },
         });
     } catch (error) {

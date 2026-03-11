@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
 
             if (mode === 'journey') {
                 const { durationSeconds, hasDuration } = normalizeDuration(meta?.durationSeconds);
-                const stars = hasDuration ? journeyStarsFromTime(durationSeconds, puzzle.difficulty, puzzle.label) : 0;
+                const stars = hasDuration ? journeyStarsFromTime(durationSeconds, puzzle.difficulty, puzzle.label, puzzle.size) : 0;
                 const levelId = typeof meta?.levelId === 'string' ? meta.levelId : undefined;
                 const levelOrder = Number.isFinite(meta?.level as number) ? Number(meta?.level) : undefined;
                 const activeSet = await getActiveJourneySet();
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
 
                     const validExistingTime = existing && existing.timeSeconds > 0 ? existing.timeSeconds : null;
                     const bestTime = validExistingTime ? Math.min(validExistingTime, durationSeconds) : durationSeconds;
-                    const baselineStars = validExistingTime ? journeyStarsFromTime(validExistingTime, puzzle.difficulty, puzzle.label) : 0;
+                    const baselineStars = validExistingTime ? journeyStarsFromTime(validExistingTime, puzzle.difficulty, puzzle.label, puzzle.size) : 0;
                     const bestStars = Math.max(stars, baselineStars);
 
                     const createData = player.userId

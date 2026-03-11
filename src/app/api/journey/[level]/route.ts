@@ -75,7 +75,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ lev
             progress: {
                 stars: best?.stars ?? 0,
                 timeSeconds: best?.timeSeconds ?? null,
-                starsFromTime: journeyStarsFromTime(best?.timeSeconds ?? null, puzzle.difficulty, puzzle.label),
+                starsFromTime: journeyStarsFromTime(best?.timeSeconds ?? null, puzzle.difficulty, puzzle.label, puzzle.size),
             },
         });
     } catch (error) {

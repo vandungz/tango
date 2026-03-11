@@ -18,7 +18,7 @@ export default function WinModal() {
     const [isAdvancing, setIsAdvancing] = useState(false);
 
     const isJourney = state.mode === 'journey';
-    const stars = isJourney ? journeyStarsFromTime(state.timer, state.difficulty, state.label) : 0;
+    const stars = isJourney ? journeyStarsFromTime(state.timer, state.difficulty, state.label, state.size) : 0;
 
     useEffect(() => {
         if (state.isWon) {

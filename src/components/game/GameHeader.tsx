@@ -19,8 +19,8 @@ export default function GameHeader() {
     const difficulty = isDaily ? formatDateLabel(state.dailyDate) : state.label;
     const meta = isDaily ? `Streak ${state.currentStreak} | Best ${state.bestStreak}` : `Stars ${state.journeyStars}`;
 
-    const { threeStar, twoStar, maxTime } = journeyStarThresholds(state.difficulty, state.label);
-    const starCount = journeyStarsFromTime(state.timer, state.difficulty, state.label);
+    const { threeStar, twoStar, maxTime } = journeyStarThresholds(state.difficulty, state.label, state.size);
+    const starCount = journeyStarsFromTime(state.timer, state.difficulty, state.label, state.size);
     const elapsed = Math.min(state.timer, maxTime);
     const remaining = Math.max(0, maxTime - elapsed);
     const remainingPct = (remaining / maxTime) * 100;
