@@ -28,6 +28,14 @@ interface DailyVariantProgress {
     stars: number | null;
 }
 
+interface HintInsight {
+    rule: string;
+    message: string;
+    difficulty: number | null;
+    analysisMs: number | null;
+    budgetMs: number | null;
+}
+
 interface GameState {
     puzzleId: string | null;
     dailyId: string | null;
@@ -54,6 +62,8 @@ interface GameState {
     isWon: boolean;
     errors: [number, number][];
     hintCell: { row: number; col: number } | null;
+    hintInsight: HintInsight | null;
+    hintPending: boolean;
     hintsUsed: number;
     loading: boolean;
     hasChosenMode: boolean;
@@ -68,8 +78,11 @@ type GameAction =
     | { type: 'GO_HOME' }
     | { type: 'TICK' }
     | { type: 'SET_ERRORS'; errors: [number, number][] }
-    | { type: 'SET_WON' }
+    | { type: 'SET_WON'; durationSeconds: number }
     | { type: 'SET_HINT'; row: number; col: number; value: CellValue }
+    | { type: 'SET_HINT_INFO'; payload: HintInsight }
+    | { type: 'SET_HINT_PENDING'; pending: boolean }
+    | { type: 'CLEAR_HINT_INFO' }
     | { type: 'CLEAR_HINT' }
     | { type: 'SET_LOADING'; loading: boolean }
     | { type: 'UPDATE_META'; payload: Partial<Pick<GameState, 'journeyStars' | 'journeyBestTime' | 'currentStreak' | 'bestStreak'>> }
@@ -105,6 +118,8 @@ const initialState: GameState = {
     isWon: false,
     errors: [],
     hintCell: null,
+    hintInsight: null,
+    hintPending: false,
     hintsUsed: 0,
     loading: false,
     hasChosenMode: false,
@@ -162,6 +177,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 timer: 0,
                 errors: [],
                 hintCell: null,
+                hintInsight: null,
+                hintPending: false,
                 isComplete: false,
                 isWon: false,
             };
@@ -223,6 +240,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 timer: 0,
                 errors: [],
                 hintCell: null,
+                hintInsight: null,
+                hintPending: false,
                 isComplete: false,
                 isWon: false,
                 isRunning: true,
@@ -237,14 +256,30 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             return { ...state, errors: action.errors };
 
         case 'SET_WON':
-            return { ...state, isWon: true, isComplete: true, isRunning: false };
+            return {
+                ...state,
+                timer: action.durationSeconds,
+                isWon: true,
+                isComplete: true,
+                isRunning: false,
+            };
 
         case 'SET_HINT':
             return {
                 ...state,
                 hintCell: { row: action.row, col: action.col },
+                hintPending: false,
                 hintsUsed: state.mode === 'journey' ? state.hintsUsed + 1 : state.hintsUsed,
             };
+
+        case 'SET_HINT_INFO':
+            return { ...state, hintInsight: action.payload };
+
+        case 'CLEAR_HINT_INFO':
+            return { ...state, hintInsight: null };
+
+        case 'SET_HINT_PENDING':
+            return { ...state, hintPending: action.pending };
 
         case 'CLEAR_HINT':
             return { ...state, hintCell: null };
@@ -313,6 +348,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const lastBoardKeyRef = useRef<string>('');
     const suppressErrorsUntilRef = useRef<number>(Date.now() + VALIDATION_DELAY_MS);
     const hintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const hintInsightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const isCheckingSolutionRef = useRef<boolean>(false);
     const wonPuzzleIdRef = useRef<string | null>(null);
     const isStartingNextGameRef = useRef<boolean>(false);
@@ -331,6 +367,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         }
     }, [state.hintCell]);
 
+    const showHintInsight = useCallback((payload: HintInsight) => {
+        if (hintInsightTimeoutRef.current) {
+            clearTimeout(hintInsightTimeoutRef.current);
+            hintInsightTimeoutRef.current = null;
+        }
+
+        dispatch({ type: 'SET_HINT_INFO', payload });
+        hintInsightTimeoutRef.current = setTimeout(() => {
+            hintInsightTimeoutRef.current = null;
+            dispatch({ type: 'CLEAR_HINT_INFO' });
+        }, 7000);
+    }, []);
+
     useEffect(() => {
         soundOnRef.current = getSoundOn();
         const storedVolume = getSoundVolume();
@@ -345,6 +394,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         soundVolumeRef.current = soundVolume;
         setMasterVolume(soundVolume);
     }, [soundVolume]);
+
+    useEffect(() => {
+        return () => {
+            if (hintTimeoutRef.current) {
+                clearTimeout(hintTimeoutRef.current);
+                hintTimeoutRef.current = null;
+            }
+            if (hintInsightTimeoutRef.current) {
+                clearTimeout(hintInsightTimeoutRef.current);
+                hintInsightTimeoutRef.current = null;
+            }
+        };
+    }, []);
 
     // Timer
     useEffect(() => {
@@ -523,10 +585,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             clearTimeout(validationTimeoutRef.current);
             validationTimeoutRef.current = null;
         }
+        if (hintInsightTimeoutRef.current) {
+            clearTimeout(hintInsightTimeoutRef.current);
+            hintInsightTimeoutRef.current = null;
+        }
         suppressErrorsUntilRef.current = Date.now() + VALIDATION_DELAY_MS;
         wonPuzzleIdRef.current = null;
         isCheckingSolutionRef.current = false;
         isStartingNextGameRef.current = false;
+        dispatch({ type: 'SET_HINT_PENDING', pending: false });
+        dispatch({ type: 'CLEAR_HINT_INFO' });
         dispatch({ type: 'GO_HOME' });
     }, [cancelPendingHint]);
 
@@ -535,12 +603,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
         const boardToCheck = boardOverride ? cloneBoard(boardOverride) : state.board;
         const requestPuzzleId = state.puzzleId;
+        const completionSeconds = state.timer;
         isCheckingSolutionRef.current = true;
 
         const meta = state.mode === 'daily'
-            ? { dailyId: state.dailyId, dailyDate: state.dailyDate, durationSeconds: state.timer }
+            ? { dailyId: state.dailyId, dailyDate: state.dailyDate, durationSeconds: completionSeconds }
             : state.mode === 'journey'
-                ? { levelId: state.journeyLevelId, level: state.journeyLevel, durationSeconds: state.timer }
+                ? { levelId: state.journeyLevelId, level: state.journeyLevel, durationSeconds: completionSeconds }
                 : {};
 
         try {
@@ -563,7 +632,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             if (data.complete) {
                 if (wonPuzzleIdRef.current === requestPuzzleId) return;
                 wonPuzzleIdRef.current = requestPuzzleId;
-                dispatch({ type: 'SET_WON' });
+                dispatch({ type: 'SET_WON', durationSeconds: completionSeconds });
                 if (soundOnRef.current && soundVolumeRef.current > 0) playVictorySound();
 
                 // Update stats
@@ -606,18 +675,39 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         const isJourneyHintExhausted = state.mode === 'journey' && state.hintsUsed >= JOURNEY_HINT_LIMIT;
         if (isJourneyHintExhausted) return;
 
+        const networkTimeoutMs = state.mode === 'journey' ? 750 : 1300;
+        const autoApplyDelayMs = state.mode === 'journey' ? 360 : 600;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), networkTimeoutMs);
+
         try {
             cancelPendingHint(true);
+            dispatch({ type: 'SET_HINT_PENDING', pending: true });
 
             const res = await fetch('/api/puzzle/hint', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ puzzleId: state.puzzleId, currentBoard: state.board }),
+                signal: controller.signal,
+                body: JSON.stringify({ puzzleId: state.puzzleId, currentBoard: state.board, mode: state.mode }),
             });
             const data = await res.json();
 
+            if (!res.ok) {
+                throw new Error(data?.error || 'Hint request failed');
+            }
+
+            const analysisMs = Number.isFinite(data?.metrics?.analysisMs) ? Number(data.metrics.analysisMs) : null;
+            const budgetMs = Number.isFinite(data?.metrics?.budgetMs) ? Number(data.metrics.budgetMs) : null;
+
             if (data.hint) {
                 dispatch({ type: 'SET_HINT', row: data.hint.row, col: data.hint.col, value: data.hint.value });
+                showHintInsight({
+                    rule: data.hint.rule || 'Logic Hint',
+                    message: `Hint from ${data.hint.rule || 'rule engine'}`,
+                    difficulty: Number.isFinite(data.hint.difficulty) ? Number(data.hint.difficulty) : null,
+                    analysisMs,
+                    budgetMs,
+                });
                 if (soundOnRef.current && soundVolumeRef.current > 0) playHintSound();
 
                 // Auto-place after showing hint highlight
@@ -628,12 +718,32 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
                     restartValidationDelay();
                     dispatch({ type: 'PLACE_CELL', row: data.hint.row, col: data.hint.col, value: data.hint.value });
                     dispatch({ type: 'CLEAR_HINT' });
-                }, 600);
+                }, autoApplyDelayMs);
+            } else {
+                showHintInsight({
+                    rule: 'No Action',
+                    message: data?.message || 'No hint available for current board.',
+                    difficulty: null,
+                    analysisMs,
+                    budgetMs,
+                });
             }
         } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                showHintInsight({
+                    rule: 'Time Budget Guard',
+                    message: 'Hint took too long and was skipped to protect your timer.',
+                    difficulty: null,
+                    analysisMs: null,
+                    budgetMs: networkTimeoutMs,
+                });
+            }
             console.error('Hint failed:', error);
+        } finally {
+            clearTimeout(timeoutId);
+            dispatch({ type: 'SET_HINT_PENDING', pending: false });
         }
-    }, [cancelPendingHint, restartValidationDelay, state.board, state.hintsUsed, state.mode, state.puzzleId]);
+    }, [cancelPendingHint, restartValidationDelay, showHintInsight, state.board, state.hintsUsed, state.mode, state.puzzleId]);
 
     // Auto-validate: detect errors immediately but surface them after a short delay; win check runs instantly when board is full and clean.
     useEffect(() => {

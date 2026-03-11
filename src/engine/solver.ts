@@ -726,10 +726,24 @@ export function solve(initialBoard: Board, clues: Clue[], size: number): SolveRe
     };
 }
 
-export function getNextHint(currentBoard: Board, clues: Clue[], size: number): SolveStep | null {
+interface HintSearchOptions {
+    maxMs?: number;
+    maxRuleDifficulty?: number;
+}
+
+export function getNextHint(currentBoard: Board, clues: Clue[], size: number, options?: HintSearchOptions): SolveStep | null {
     const board = cloneBoard(currentBoard);
+    const startedAt = Date.now();
 
     for (const rule of RULES) {
+        if (options?.maxRuleDifficulty !== undefined && rule.difficulty > options.maxRuleDifficulty) {
+            continue;
+        }
+
+        if (options?.maxMs !== undefined && Date.now() - startedAt >= options.maxMs) {
+            break;
+        }
+
         const proposed = rule.apply(board, clues, size);
         const valid = dedupeAndValidateSteps(board, clues, size, proposed);
         if (valid.length > 0) {

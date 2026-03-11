@@ -6,6 +6,7 @@ import TopBar from '@/components/layout/TopBar';
 import GameHeader from '@/components/game/GameHeader';
 import Board from '@/components/game/Board';
 import Controls from '@/components/game/Controls';
+import HintInsight from '@/components/game/HintInsight';
 import WinModal from '@/components/game/WinModal';
 import StartScreen from '@/components/layout/StartScreen';
 import JourneyDrawer from '@/components/journey/JourneyDrawer';
@@ -49,6 +50,7 @@ function HomeContent() {
           <GameHeader />
           <Board />
           <Controls />
+          <HintInsight />
         </div>
       ) : (
         <div className={styles.landing}>

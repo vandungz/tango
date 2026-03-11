@@ -9,7 +9,7 @@ export default function Controls() {
 
     const nextLabel = state.mode === 'journey' ? 'Next Level →' : 'Play Again →';
     const isJourneyHintExhausted = state.mode === 'journey' && state.hintsUsed >= 5;
-    const isHintDisabled = state.isWon || isJourneyHintExhausted;
+    const isHintDisabled = state.isWon || isJourneyHintExhausted || state.hintPending;
 
     return (
         <div className={styles.controls}>
@@ -50,7 +50,7 @@ export default function Controls() {
                         <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
                         <line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
-                    Hint
+                    {state.hintPending ? 'Thinking...' : 'Hint'}
                 </button>
             </div>
             {state.isWon && (
