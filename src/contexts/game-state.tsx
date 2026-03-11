@@ -313,6 +313,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const lastBoardKeyRef = useRef<string>('');
     const suppressErrorsUntilRef = useRef<number>(Date.now() + VALIDATION_DELAY_MS);
     const hintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const isCheckingSolutionRef = useRef<boolean>(false);
+    const wonPuzzleIdRef = useRef<string | null>(null);
+    const isStartingNextGameRef = useRef<boolean>(false);
 
     const restartValidationDelay = useCallback(() => {
         suppressErrorsUntilRef.current = Date.now() + VALIDATION_DELAY_MS;
@@ -375,6 +378,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const loadDaily = useCallback(async (options?: DailyLoadOptions) => {
         dispatch({ type: 'SET_MODE_SELECTED', mode: 'daily' });
         try {
+            wonPuzzleIdRef.current = null;
+            isCheckingSolutionRef.current = false;
             const sessionId = getSessionId();
             const selectedSize = options?.size ?? boardSize;
             const selectedProMode = options?.proMode ?? proMode;
@@ -427,6 +432,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const loadJourneyLevel = useCallback(async (level?: number) => {
         dispatch({ type: 'SET_MODE_SELECTED', mode: 'journey' });
         try {
+            wonPuzzleIdRef.current = null;
+            isCheckingSolutionRef.current = false;
             const sessionId = getSessionId();
             const rawTarget = level ?? journeySummary.nextLevel ?? 1;
             const targetNumber = Number(rawTarget);
@@ -517,13 +524,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             validationTimeoutRef.current = null;
         }
         suppressErrorsUntilRef.current = Date.now() + VALIDATION_DELAY_MS;
+        wonPuzzleIdRef.current = null;
+        isCheckingSolutionRef.current = false;
+        isStartingNextGameRef.current = false;
         dispatch({ type: 'GO_HOME' });
     }, [cancelPendingHint]);
 
     const checkSolution = useCallback(async (boardOverride?: Board, boardKey?: string) => {
-        if (!state.puzzleId) return;
+        if (!state.puzzleId || state.isWon || isCheckingSolutionRef.current) return;
 
         const boardToCheck = boardOverride ? cloneBoard(boardOverride) : state.board;
+        const requestPuzzleId = state.puzzleId;
+        isCheckingSolutionRef.current = true;
 
         const meta = state.mode === 'daily'
             ? { dailyId: state.dailyId, dailyDate: state.dailyDate, durationSeconds: state.timer }
@@ -549,6 +561,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             if (boardKey && lastBoardKeyRef.current !== boardKey) return;
 
             if (data.complete) {
+                if (wonPuzzleIdRef.current === requestPuzzleId) return;
+                wonPuzzleIdRef.current = requestPuzzleId;
                 dispatch({ type: 'SET_WON' });
                 if (soundOnRef.current && soundVolumeRef.current > 0) playVictorySound();
 
@@ -582,8 +596,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (error) {
             console.error('Check failed:', error);
+        } finally {
+            isCheckingSolutionRef.current = false;
         }
-    }, [refreshJourneyProgress, state.board, state.bestStreak, state.currentStreak, state.dailyDate, state.dailyId, state.journeyBestTime, state.journeyLevel, state.journeyLevelId, state.journeyStars, state.mode, state.puzzleId, state.timer, state.level]);
+    }, [refreshJourneyProgress, state.board, state.bestStreak, state.currentStreak, state.dailyDate, state.dailyId, state.isWon, state.journeyBestTime, state.journeyLevel, state.journeyLevelId, state.journeyStars, state.mode, state.puzzleId, state.timer, state.level]);
 
     const requestHint = useCallback(async () => {
         if (!state.puzzleId) return;
@@ -663,17 +679,23 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }, [state.board, state.clues, state.size, state.isWon, state.loading, state.errors.length, checkSolution]);
 
     const newGame = useCallback(async (size?: BoardSize) => {
+        if (isStartingNextGameRef.current) return;
+        isStartingNextGameRef.current = true;
         incrementGamesPlayed();
         cancelPendingHint(true);
 
-        if (state.mode === 'journey') {
-            const target = size || (state.journeyLevel ? state.journeyLevel + 1 : journeySummary.nextLevel);
-            await loadJourneyLevel(Math.min(target, journeySummary.totalLevels));
-            await refreshJourneyProgress();
-            return;
-        }
+        try {
+            if (state.mode === 'journey') {
+                const target = size || (state.journeyLevel ? state.journeyLevel + 1 : journeySummary.nextLevel);
+                await loadJourneyLevel(Math.min(target, journeySummary.totalLevels));
+                await refreshJourneyProgress();
+                return;
+            }
 
-        await loadDaily();
+            await loadDaily();
+        } finally {
+            isStartingNextGameRef.current = false;
+        }
     }, [cancelPendingHint, journeySummary.nextLevel, journeySummary.totalLevels, loadDaily, loadJourneyLevel, refreshJourneyProgress, state.journeyLevel, state.mode]);
 
     const setBoardSize = useCallback((size: BoardSize) => {

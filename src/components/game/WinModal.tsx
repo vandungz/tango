@@ -15,6 +15,7 @@ function formatTime(seconds: number): string {
 export default function WinModal() {
     const { state, newGame } = useGame();
     const [stats, setStats] = useState({ streak: 0, best: 0, played: 0, won: 0 });
+    const [isAdvancing, setIsAdvancing] = useState(false);
 
     const isJourney = state.mode === 'journey';
     const stars = isJourney ? journeyStarsFromTime(state.timer, state.difficulty, state.label) : 0;
@@ -27,6 +28,8 @@ export default function WinModal() {
                 played: getGamesPlayed(),
                 won: getGamesWon(),
             });
+        } else {
+            setIsAdvancing(false);
         }
     }, [state.isWon]);
 
@@ -73,7 +76,19 @@ export default function WinModal() {
                     </div>
                 )}
 
-                <button className={styles.nextBtn} onClick={() => newGame()}>
+                <button
+                    className={styles.nextBtn}
+                    onClick={async () => {
+                        if (isAdvancing || state.loading) return;
+                        setIsAdvancing(true);
+                        try {
+                            await newGame();
+                        } finally {
+                            setIsAdvancing(false);
+                        }
+                    }}
+                    disabled={isAdvancing || state.loading}
+                >
                     {isJourney ? 'Next Level →' : 'Replay Daily'}
                 </button>
             </div>

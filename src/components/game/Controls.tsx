@@ -57,6 +57,7 @@ export default function Controls() {
                 <button
                     className={`${styles.btn} ${styles.newGame}`}
                     onClick={() => newGame()}
+                    disabled={state.loading}
                 >
                     {nextLabel}
                 </button>
