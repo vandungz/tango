@@ -9,22 +9,24 @@ function normalizeJourneyDifficulty(difficulty: number) {
 
 function getLabelFactor(label: string) {
     const lower = label.toLowerCase();
-    if (lower.includes('very hard')) return 0.68;
-    if (lower.includes('hard')) return 0.82;
-    if (lower.includes('medium')) return 0.93;
-    return 1;
+    if (lower.includes('very hard')) return 0.42;
+    if (lower.includes('hard')) return 0.7;
+    if (lower.includes('medium')) return 0.82;
+    return 0.9;
 }
 
 export function journeyStarThresholds(difficulty: number, label: string) {
-    const normalizedDifficulty = normalizeJourneyDifficulty(difficulty);
-    const labelFactor = getLabelFactor(label);
+    // Keep a single strict timeline for all Journey difficulties.
+    // This matches the shortest profile previously used by Very Hard.
+    const normalizedDifficulty = 1;
+    const labelFactor = 0.42;
 
     const difficultyFactor = 1 - 0.35 * normalizedDifficulty;
     const threeStarBase = 170;
     const twoStarWindowBase = 90;
     const oneStarWindowBase = 105;
 
-    const threeStar = clamp(Math.round(threeStarBase * labelFactor * difficultyFactor), 55, 220);
+    const threeStar = clamp(Math.round(threeStarBase * labelFactor * difficultyFactor), 35, 220);
 
     const twoStarWindow = Math.max(35, Math.round(twoStarWindowBase * labelFactor * (1 - 0.15 * normalizedDifficulty)));
     const twoStar = threeStar + twoStarWindow;
